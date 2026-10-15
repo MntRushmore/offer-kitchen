@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { sfx } from "@/lib/client/sound";
 import { formatClock, useTick } from "@/lib/client/useGame";
-import { CRITERIA, GRADE_TIERS, LETTERS, OVEN_LINES, REVEAL_GAP_MS, ROUND_ART } from "@/lib/constants";
+import { CRITERIA, GRADE_TIERS, LETTERS, OVEN_LINES, REVEAL_GAP_MS, roundArt } from "@/lib/constants";
 import type { BoardEntry, Player, PublicState, Scaffold } from "@/lib/types";
 import {
   Art,
@@ -41,6 +41,25 @@ const CONFETTI = ["#fddb68", "#6fbbe2", "#fd6338", "#84bc74", "#f4c4cf", "#eb982
 
 function playerMap(players: Player[]) {
   return new Map(players.map((p) => [p.id, p]));
+}
+
+/** The finalists of the current round, if it's a finalists-only round. */
+function currentFinalists(state: PublicState): Player[] | null {
+  const { roundIndex } = state.game;
+  if (!state.rounds[roundIndex]?.finalists) return null;
+  const f = state.game.finalists;
+  const pm = playerMap(state.players);
+  return (f?.round === roundIndex ? f.ids : []).map((id) => pm.get(id)).filter((p): p is Player => Boolean(p));
+}
+
+/** Each finalist's best score from the rounds before this one. */
+function bestBefore(state: PublicState, playerId: string) {
+  let best: number | null = null;
+  for (let r = 0; r < state.game.roundIndex; r++) {
+    const e = state.board[r]?.find((x) => x.playerId === playerId);
+    if (e?.overall !== undefined && (best === null || e.overall > best)) best = e.overall;
+  }
+  return best;
 }
 
 const shortUrl = (u: string) => u.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -218,8 +237,47 @@ export function LobbyScreen({ state, joinUrl }: Props) {
 
 /* ---------- Round intro ---------- */
 
+/** The Grand Slam lineup: who made the final, with their best score so far. */
+function FinalistsCard({ state, finalists }: { state: PublicState; finalists: Player[] }) {
+  const round = state.rounds[state.game.roundIndex];
+  return (
+    <div className="border-line bg-surface shadow-tv rounded-[26px] border-4 px-10 pt-8 pb-9">
+      <div className="font-display text-ink-muted text-[38px] font-bold">Tonight&apos;s finalists</div>
+      <div className="mt-6 flex flex-col gap-5">
+        {finalists.map((p, i) => {
+          const best = bestBefore(state, p.id);
+          return (
+            <motion.div
+              key={p.id}
+              initial={{ x: 80, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 1 + i * 0.35, type: "spring", stiffness: 140, damping: 14 }}
+              className="flex items-center gap-6"
+            >
+              <Avatar player={p} size={92} />
+              <div className="font-display min-w-0 flex-1 truncate text-[50px] leading-tight font-extrabold">{p.name}</div>
+              {best !== null && (
+                <div className="font-display text-[44px] font-extrabold tabular-nums" style={{ color: GRADE_TIERS[best >= 90 ? "A" : best >= 80 ? "B" : best >= 70 ? "C" : best >= 60 ? "D" : "F"].text }}>
+                  {best}
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+        {!finalists.length && <div className="font-display text-ink-soft text-[34px] font-bold">Picking the finalists…</div>}
+      </div>
+      {round?.topic && (
+        <div className="border-line/20 font-display text-ink mt-7 border-t-4 border-dashed pt-5 text-[34px] font-bold">
+          Cooking: {round.topic.emoji} {round.topic.title}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function IntroScreen({ state, joinUrl }: Props) {
   const round = state.rounds[state.game.roundIndex];
+  const finalists = currentFinalists(state);
   if (!round) return null;
   return (
     <Frame state={state} joinUrl={joinUrl}>
@@ -231,7 +289,7 @@ export function IntroScreen({ state, joinUrl }: Props) {
             animate={{ scale: 1, rotate: 6 }}
             transition={{ delay: 0.9, type: "spring", stiffness: 140, damping: 11 }}
           >
-            <Art src={ROUND_ART[round.scaffold]} className="h-[220px] w-[220px] object-contain" />
+            <Art src={roundArt(round)} className="h-[220px] w-[220px] object-contain" />
           </motion.div>
           <motion.div
             className="font-sign text-sticker inline-block self-start text-[176px] leading-none"
@@ -263,7 +321,7 @@ export function IntroScreen({ state, joinUrl }: Props) {
             className="mt-auto flex flex-wrap items-start gap-4"
           >
             <Chip tv tone="lime">
-              {SCAFFOLD_LABEL[round.scaffold]}
+              {round.finalists ? `🏆 Top ${round.finalists} only` : SCAFFOLD_LABEL[round.scaffold]}
             </Chip>
             <Chip tv tone="alt">
               ⏱️ {state.game.autopilot ? "Quick demo timer" : `${round.minutes} minutes`}
@@ -280,7 +338,7 @@ export function IntroScreen({ state, joinUrl }: Props) {
               animate={{ y: 0, rotate: [8, -3, 1.5, 0] }}
               transition={{ delay: 0.5, y: { type: "spring", stiffness: 70, damping: 12 }, rotate: { duration: 1.8, ease: "easeOut" } }}
             >
-              <OfferBrief topic={round.topic} tv />
+              {finalists ? <FinalistsCard state={state} finalists={finalists} /> : <OfferBrief topic={round.topic} tv />}
             </motion.div>
           </div>
         )}
@@ -383,7 +441,9 @@ export function WritingScreen({ state, serverNow, joinUrl }: Props) {
   const round = state.rounds[state.game.roundIndex];
   const entries = state.board[state.game.roundIndex] ?? [];
   const plated = new Set(entries.map((e) => e.playerId));
-  const total = state.players.length;
+  const finalists = currentFinalists(state);
+  const cooks = finalists ?? state.players;
+  const total = cooks.length;
   const totalMs =
     state.game.roundEndsAt && state.game.phaseStartedAt
       ? Math.max(1000, state.game.roundEndsAt - state.game.phaseStartedAt)
@@ -414,16 +474,26 @@ export function WritingScreen({ state, serverNow, joinUrl }: Props) {
           </div>
           <div className="border-line bg-steel shadow-tv mt-8 flex min-h-0 w-full flex-1 flex-col rounded-[26px] border-4 px-7 pt-5 pb-6">
             <div className="flex items-baseline justify-between">
-              <span className="font-sign text-ink text-[46px]">The pass</span>
+              <span className="font-sign text-ink text-[46px]">{finalists ? "The finalists" : "The pass"}</span>
               <span className="font-display text-[64px] leading-none font-extrabold tabular-nums">
                 {plated.size}
                 <span className="text-ink-soft text-[36px]"> / {total}</span>
               </span>
             </div>
             <Meter tv value={total ? (plated.size / total) * 100 : 0} color="#84bc74" className="mt-3" />
-            <div className="mt-5 flex flex-wrap content-start gap-2.5 overflow-hidden">
-              {state.players.map((p) => {
+            <div className={cx("mt-5 flex overflow-hidden", finalists ? "flex-col gap-3" : "flex-wrap content-start gap-2.5")}>
+              {cooks.map((p) => {
                 const on = plated.has(p.id);
+                if (finalists)
+                  return (
+                    <div key={p.id} className="flex items-center gap-4">
+                      <motion.div animate={on ? { scale: [1, 1.25, 1] } : {}} transition={{ duration: 0.45 }}>
+                        <Avatar player={p} size={68} dim={!on} />
+                      </motion.div>
+                      <div className="font-display min-w-0 flex-1 truncate text-[34px] font-extrabold">{p.name}</div>
+                      <div className={cx("font-display text-[28px] font-bold", on ? "text-[#3c7a2c]" : "text-ink-soft")}>{on ? "✓ Plated" : "Cooking…"}</div>
+                    </div>
+                  );
                 return (
                   <div key={p.id} className="relative">
                     <motion.div animate={on ? { scale: [1, 1.35, 1], y: [0, -10, 0] } : {}} transition={{ duration: 0.45 }}>
@@ -768,20 +838,23 @@ export function FinalScreen({ state }: Props) {
       new Map((state.board[r] ?? []).filter((e) => e.overall !== undefined).map((e) => [e.playerId, e.overall!]));
     const last = scoreIn(lastRound);
     const first = scoreIn(0);
+    // Glow-up and averages compare the whole room, so a finalists-only round sits out.
+    const roomRounds = state.rounds.map((r, i) => (r.finalists ? -1 : i)).filter((i) => i >= 0);
+    const lastRoom = scoreIn(roomRounds[roomRounds.length - 1] ?? lastRound);
     const podium = [...last.entries()]
       .filter(([id]) => pm.has(id))
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([id, score]) => ({ player: pm.get(id)!, score }));
     let glow: { player: Player; from: number; to: number } | null = null;
-    for (const [id, to] of last) {
+    for (const [id, to] of lastRoom) {
       const from = first.get(id);
-      if (from === undefined || !pm.has(id) || lastRound === 0) continue;
+      if (from === undefined || !pm.has(id) || roomRounds.length < 2) continue;
       if (!glow || to - from > glow.to - glow.from) glow = { player: pm.get(id)!, from, to };
     }
-    const avgs = state.rounds.map((_, r) => {
+    const avgs = roomRounds.map((r) => {
       const xs = [...scoreIn(r).values()];
-      return xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0;
+      return { r, avg: xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0 };
     });
     return { podium, glow, avgs };
   }, [state.board, state.rounds, lastRound, pm]);
@@ -889,7 +962,7 @@ export function FinalScreen({ state }: Props) {
           >
             <div className="font-display text-ink-soft text-[28px] font-bold">The room levelled up</div>
             <div className="mt-2 flex flex-1 items-end gap-6">
-              {avgs.map((a, r) => (
+              {avgs.map(({ r, avg: a }, k) => (
                 <div key={r} className="flex h-full flex-1 flex-col items-center justify-end">
                   <div className="font-display mb-1 text-[44px] font-extrabold tabular-nums" style={{ color: GRADE_TIERS[a >= 90 ? "A" : a >= 80 ? "B" : a >= 70 ? "C" : a >= 60 ? "D" : "F"].text }}>
                     {a}
@@ -899,9 +972,12 @@ export function FinalScreen({ state }: Props) {
                     style={{ background: scoreColor(a) }}
                     initial={{ height: 0 }}
                     animate={{ height: `${Math.max(4, a) * 0.62}%` }}
-                    transition={{ delay: 3.3 + r * 0.3, type: "spring", stiffness: 60 }}
+                    transition={{ delay: 3.3 + k * 0.3, type: "spring", stiffness: 60 }}
                   />
-                  <div className="font-display mt-2 text-[22px] font-bold">{state.rounds[r]?.name}</div>
+                  {/* Two lines for every label, so a long round name doesn't squash its bar. */}
+                  <div className="font-display mt-2 flex h-[56px] items-start justify-center text-center text-[22px] leading-tight font-bold">
+                    {state.rounds[r]?.name}
+                  </div>
                 </div>
               ))}
             </div>

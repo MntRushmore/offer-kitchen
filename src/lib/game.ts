@@ -31,6 +31,7 @@ const K = {
   subs: "ok:subs",
   grades: "ok:grades",
   reactions: "ok:react",
+  help: "ok:help",
 };
 const subKey = (round: number, playerId: string) => `${round}:${playerId}`;
 
@@ -43,6 +44,7 @@ interface Snapshot {
   subs: Record<string, Submission>;
   grades: Record<string, GradeRecord>;
   reactions: Record<string, number>;
+  help: Record<string, { at: number }>;
 }
 
 /* ---------- Reading ---------- */
@@ -69,13 +71,14 @@ function newGame(muted = false): GameState {
     autopilot: false,
     announcement: null,
     cue: null,
+    finalists: null,
     updatedAt: now,
   };
 }
 
 async function readSnapshot(fresh = false): Promise<Snapshot> {
   if (!fresh && cache && Date.now() - cache.at < CACHE_MS) return cache.snap;
-  const { gets, hashes } = await store.readMany([K.config, K.game], [K.players, K.subs, K.grades, K.reactions]);
+  const { gets, hashes } = await store.readMany([K.config, K.game], [K.players, K.subs, K.grades, K.reactions, K.help]);
   const config = withDefaults(gets[0] as Partial<GameConfig> | null);
   let game = gets[1] as GameState | null;
   if (!game) {
@@ -91,6 +94,7 @@ async function readSnapshot(fresh = false): Promise<Snapshot> {
     subs: hashes[1] as Record<string, Submission>,
     grades: hashes[2] as Record<string, GradeRecord>,
     reactions: Object.fromEntries(Object.entries(hashes[3] ?? {}).map(([k, v]) => [k, Number(v) || 0])),
+    help: (hashes[4] ?? {}) as Snapshot["help"],
   };
   cache = { at: Date.now(), snap };
   return snap;
@@ -121,15 +125,48 @@ function currentGrade(sub: Submission | undefined, rec: GradeRecord | undefined)
   return rec;
 }
 
-/** Offer quality follows the scaffold: blank → raw, checklist → seasoned, guided → grand slam. */
+/* ---------- Finalists ---------- */
+
+/** The top `n` by best single score in the rounds before `round` (ties: higher total, then who joined first). */
+function pickFinalists(snap: Snapshot, round: number, n: number): string[] {
+  const rows = Object.values(snap.players)
+    .filter((p) => !p.hidden)
+    .map((p) => {
+      const scores: number[] = [];
+      for (let r = 0; r < round; r++) {
+        const grade = currentGrade(snap.subs[subKey(r, p.id)], snap.grades[subKey(r, p.id)])?.grade;
+        if (grade) scores.push(grade.overall);
+      }
+      return { p, best: scores.length ? Math.max(...scores) : -1, total: scores.reduce((a, b) => a + b, 0) };
+    });
+  return rows
+    .filter((r) => r.best >= 0)
+    .sort((a, b) => b.best - a.best || b.total - a.total || a.p.joinedAt - b.p.joinedAt)
+    .slice(0, n)
+    .map((r) => r.p.id);
+}
+
+/** Who may write in `round`: null means everyone. */
+function finalistsOf(snap: Snapshot, round: number): Set<string> | null {
+  const n = snap.config.rounds[round]?.finalists ?? 0;
+  if (!n) return null;
+  const f = snap.game.finalists;
+  return new Set(f?.round === round ? f.ids : pickFinalists(snap, round, n));
+}
+
+const canWrite = (snap: Snapshot, playerId: string, round: number) => finalistsOf(snap, round)?.has(playerId) ?? true;
+
+/** Offer quality follows the scaffold: blank → raw, checklist → seasoned, guided → grand slam. Finalists cook their best. */
 const SCAFFOLD_LEVEL: Record<Scaffold, number> = { blank: 0, checklist: 1, guided: 2 };
+const botLevel = (config: GameConfig, round: number) =>
+  config.rounds[round]?.finalists ? 2 : SCAFFOLD_LEVEL[config.rounds[round]?.scaffold ?? "blank"];
 
 function seatScript(snap: Snapshot, player: Player) {
   const { game, config } = snap;
   const round = config.rounds[game.roundIndex];
-  if (!player.seat || !round || game.phase !== "writing") return null;
+  if (!player.seat || !round || game.phase !== "writing" || !canWrite(snap, player.id, game.roundIndex)) return null;
   const rand = seeded(`${game.id}:${game.roundIndex}:${player.seat}`);
-  return botOffer(topicFor(config, game.roundIndex), SCAFFOLD_LEVEL[round.scaffold], rand);
+  return botOffer(topicFor(config, game.roundIndex), botLevel(config, game.roundIndex), rand);
 }
 
 export async function buildState(opts: { playerId?: string | null; admin?: boolean }): Promise<PublicState> {
@@ -176,6 +213,7 @@ export async function buildState(opts: { playerId?: string | null; admin?: boole
     me = {
       player: mine,
       script: seatScript(snap, mine),
+      helpAt: snap.help[mine.id]?.at ?? null,
       rounds: config.rounds.map((_, r): MeRound => {
         const sub = snap.subs[subKey(r, mine.id)] ?? null;
         const rec = currentGrade(sub ?? undefined, snap.grades[subKey(r, mine.id)]);
@@ -217,6 +255,10 @@ export async function buildState(opts: { playerId?: string | null; admin?: boole
           aiConfigured: aiConfigured(),
           storeKind: store.kind,
           defaultPrompt: DEFAULT_SYSTEM_PROMPT,
+          help: Object.entries(snap.help)
+            .filter(([id]) => snap.players[id])
+            .map(([playerId, h]) => ({ playerId, at: h.at }))
+            .sort((a, b) => a.at - b.at),
         }
       : undefined,
   };
@@ -273,6 +315,15 @@ export async function leaveGame(playerId: string) {
   await adminAction({ action: "kickPlayer", playerId });
 }
 
+/** A player raising (or lowering) their hand for an organizer. */
+export async function askForHelp(playerId: string, on: boolean) {
+  const snap = await readSnapshot(true);
+  if (!snap.players[playerId]) throw new GameError("You're not in this game — rejoin from the QR code.");
+  if (on && !snap.help[playerId]) await store.hset(K.help, playerId, { at: Date.now() });
+  if (!on) await store.hdel(K.help, playerId);
+  invalidate();
+}
+
 /* ---------- Submitting & grading ---------- */
 
 export async function submitOffer(input: {
@@ -287,6 +338,7 @@ export async function submitOffer(input: {
   if (game.phase !== "writing" || input.round !== game.roundIndex) {
     throw new GameError("The kitchen is closed for this round.");
   }
+  if (!canWrite(snap, input.playerId, input.round)) throw new GameError("This round is just for the finalists. Enjoy the show!");
 
   let text: string;
   let fields: GuidedFields | null = null;
@@ -445,6 +497,7 @@ const ConfigSchema = z.object({
         scaffold: z.enum(["blank", "checklist", "guided"]),
         minutes: z.number().min(0.5).max(60),
         tips: z.array(z.string().max(300)).max(10),
+        finalists: z.number().int().min(0).max(40).default(0),
       }),
     )
     .min(1)
@@ -483,7 +536,10 @@ export type AdminAction =
   | { action: "removeBots" }
   | { action: "clearReactions" }
   | { action: "demoStart" }
-  | { action: "autopilot"; on: boolean };
+  | { action: "autopilot"; on: boolean }
+  | { action: "resolveHelp"; playerId: string }
+  | { action: "setFinalist"; playerId: string; on: boolean }
+  | { action: "repickFinalists" };
 
 function timeLeft(game: GameState) {
   if (game.pausedLeft !== null) return game.pausedLeft;
@@ -513,9 +569,10 @@ async function addBots(snap: Snapshot, count: number) {
 
 function botPlate(snap: Snapshot, bot: Player) {
   const round = snap.game.roundIndex;
-  const scaffold = snap.config.rounds[round]?.scaffold ?? "blank";
+  if (!canWrite(snap, bot.id, round)) return Promise.resolve();
   const jitter = [-1, 0, 0, 0, 1][Math.floor(Math.random() * 5)];
-  const offer = bot.seat ? seatScript(snap, bot)! : botOffer(topicFor(snap.config, round), SCAFFOLD_LEVEL[scaffold] + jitter);
+  const offer = bot.seat ? seatScript(snap, bot) : botOffer(topicFor(snap.config, round), botLevel(snap.config, round) + jitter);
+  if (!offer) return Promise.resolve();
   return submitOffer({ playerId: bot.id, round, text: offer.text, fields: offer.fields }).catch(() => {});
 }
 
@@ -525,7 +582,14 @@ export async function adminAction(a: AdminAction): Promise<void> {
   const game = { ...snap.game };
   const last = snap.config.rounds.length - 1;
   const minutes = () => snap.config.rounds[game.roundIndex]?.minutes ?? 5;
-  const save = () => saveGame(game, prev);
+  const save = () => {
+    // Entering a finalists round fixes who's in, so later regrades don't reshuffle the final mid-show.
+    const n = snap.config.rounds[game.roundIndex]?.finalists ?? 0;
+    if (n && game.phase !== "lobby" && game.finalists?.round !== game.roundIndex) {
+      game.finalists = { round: game.roundIndex, ids: pickFinalists(snap, game.roundIndex, n) };
+    }
+    return saveGame(game, prev);
+  };
   const openKitchen = () => {
     const secs = game.autopilot ? snap.config.show.demo.writingSeconds : minutes() * 60;
     Object.assign(game, { phase: "writing", roundEndsAt: Date.now() + secs * 1000, pausedLeft: null });
@@ -614,13 +678,13 @@ export async function adminAction(a: AdminAction): Promise<void> {
       return save();
     }
     case "reset": {
-      await store.del(K.players, K.subs, K.grades, K.reactions);
+      await store.del(K.players, K.subs, K.grades, K.reactions, K.help);
       await store.set(K.game, newGame(game.muted));
       invalidate();
       return;
     }
     case "demoStart": {
-      await store.del(K.players, K.subs, K.grades, K.reactions);
+      await store.del(K.players, K.subs, K.grades, K.reactions, K.help);
       await store.set(K.game, { ...newGame(game.muted), autopilot: true });
       invalidate();
       return;
@@ -640,6 +704,7 @@ export async function adminAction(a: AdminAction): Promise<void> {
       cfg.topics.forEach((t) => (t.brief = (t.brief ?? []).map((b) => b.trim()).filter(Boolean)));
       const ids = new Set(cfg.topics.map((t) => t.id));
       if (cfg.rounds.some((r) => !ids.has(r.topicId))) throw new GameError("Every round needs a topic card that exists.");
+      if (cfg.rounds[0]?.finalists) throw new GameError("Round 1 can't be a finals round: nobody has a score yet.");
       await store.set(K.config, cfg);
       if (game.roundIndex > cfg.rounds.length - 1) {
         game.roundIndex = cfg.rounds.length - 1;
@@ -670,6 +735,7 @@ export async function adminAction(a: AdminAction): Promise<void> {
     }
     case "kickPlayer": {
       await store.hdel(K.players, a.playerId);
+      await store.hdel(K.help, a.playerId);
       if (game.spotlightPlayerId === a.playerId) {
         Object.assign(game, { spotlightPlayerId: null, phase: game.phase === "spotlight" ? "leaderboard" : game.phase });
         await save();
@@ -694,7 +760,7 @@ export async function adminAction(a: AdminAction): Promise<void> {
     case "botsSubmit": {
       if (game.phase !== "writing") throw new GameError("Open the kitchen first, then let the bots cook.");
       const round = game.roundIndex;
-      const bots = Object.values(snap.players).filter((p) => p.bot && !snap.subs[subKey(round, p.id)]);
+      const bots = Object.values(snap.players).filter((p) => p.bot && !snap.subs[subKey(round, p.id)] && canWrite(snap, p.id, round));
       after(async () => {
         for (const bot of bots) {
           await new Promise((r) => setTimeout(r, 250 + Math.random() * 900));
@@ -712,6 +778,22 @@ export async function adminAction(a: AdminAction): Promise<void> {
       await store.del(K.reactions);
       invalidate();
       return;
+    case "resolveHelp":
+      await store.hdel(K.help, a.playerId);
+      invalidate();
+      return;
+    case "setFinalist":
+    case "repickFinalists": {
+      const n = snap.config.rounds[game.roundIndex]?.finalists ?? 0;
+      if (!n) throw new GameError("This round isn't a finalists round.");
+      let ids = a.action === "repickFinalists" ? pickFinalists(snap, game.roundIndex, n) : [...(finalistsOf(snap, game.roundIndex) ?? [])];
+      if (a.action === "setFinalist") {
+        if (!snap.players[a.playerId]) throw new GameError("No such player.");
+        ids = a.on ? [...new Set([...ids, a.playerId])] : ids.filter((id) => id !== a.playerId);
+      }
+      game.finalists = { round: game.roundIndex, ids };
+      return saveGame(game, prev);
+    }
   }
 }
 
@@ -771,22 +853,23 @@ export async function tick(): Promise<void> {
       const left = timeLeft(game);
       if (ap && game.pausedLeft === null) {
         const done = new Set(roundSubs.map((x) => x.playerId));
-        const humans = Object.values(snap.players).filter((p) => !p.bot && !p.hidden);
+        const cooks = Object.values(snap.players).filter((p) => !p.hidden && canWrite(snap, p.id, game.roundIndex));
+        const humans = cooks.filter((p) => !p.bot);
         const humansDone = humans.length > 0 && humans.every((p) => done.has(p.id));
         // Playable demo: bots pace themselves to real people, and hurry up once every human has plated.
         // Watch-only demo: bots plate within ~25s so nobody waits on an empty timer.
         const total = Math.max(10_000, (game.roundEndsAt ?? now) - game.phaseStartedAt);
         const cookWindow = humans.length ? total * 0.75 : Math.min(total * 0.75, 22_000);
         const frac = humansDone ? 1 : Math.min(1, Math.max(0, (age - 3000) / cookWindow));
-        const waiting = bots.filter((b) => !done.has(b.id) && (!b.seat || frac >= 1));
-        const plain = bots.filter((b) => !b.seat).length;
-        const want = Math.ceil(plain * frac) - bots.filter((b) => !b.seat && done.has(b.id)).length;
+        const cookBots = cooks.filter((p) => p.bot);
+        const waiting = cookBots.filter((b) => !done.has(b.id) && (!b.seat || frac >= 1));
+        const plain = cookBots.filter((b) => !b.seat).length;
+        const want = Math.ceil(plain * frac) - cookBots.filter((b) => !b.seat && done.has(b.id)).length;
         const batch = waiting.filter((b) => !b.seat).slice(0, Math.max(0, Math.min(humansDone ? 8 : 3, want)));
         // Demo phones that are still typing get plated for them once the humans are done (or time is nearly up).
         if (frac >= 1 && (humansDone || age > total * 0.9)) batch.push(...waiting.filter((b) => b.seat));
         if (batch.length) await once(`${tag}:cook:${Math.floor(now / 1000)}`, 10, () => Promise.all(batch.map((b) => botPlate(snap, b))));
-        const everyone = Object.values(snap.players).filter((p) => !p.hidden);
-        if (age > 6000 && everyone.length > 0 && everyone.every((p) => done.has(p.id))) await advance("all-plated");
+        if (age > 6000 && cooks.length > 0 && cooks.every((p) => done.has(p.id))) await advance("all-plated");
       }
       // Phones auto-plate at zero; give them a beat before the lock.
       if ((ap || s.autoLock) && game.roundEndsAt && left !== null && left < -2500) await advance("lock");

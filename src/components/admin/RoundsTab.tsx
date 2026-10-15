@@ -1,6 +1,6 @@
 "use client";
 
-import { ROUND_ART } from "@/lib/constants";
+import { roundArt } from "@/lib/constants";
 import type { GameConfig, PublicState, RoundConfig, Scaffold } from "@/lib/types";
 import { Art, Badge, Button, cx, Field, Input, Panel, Select, Textarea, TopicArt } from "../ui";
 import { Count, Eyebrow, Stepper, TabHeader } from "./controls";
@@ -46,6 +46,7 @@ export function RoundsTab({ state, config, edit }: { state: PublicState; config:
       <div className="flex flex-col gap-6">
         {rounds.map((r, i) => {
           const topic = config.topics.find((t) => t.id === r.topicId);
+          const finalists = r.finalists ?? 0;
           return (
             <Panel
               key={i}
@@ -54,6 +55,7 @@ export function RoundsTab({ state, config, edit }: { state: PublicState; config:
                 <span className="flex items-center gap-2">
                   Round {i + 1}
                   <span className="text-ink-soft truncate font-bold">· {r.name || "Untitled"}</span>
+                  {finalists > 0 && <span title={`Top ${finalists} finalists`}>🏆</span>}
                   {i === liveRound && <Badge tone="danger">On the TV</Badge>}
                 </span>
               }
@@ -87,7 +89,7 @@ export function RoundsTab({ state, config, edit }: { state: PublicState; config:
                 {/* Art */}
                 <div className="flex flex-row items-center gap-4 md:flex-col md:items-stretch">
                   <div className="border-line bg-tiles bg-tiles-sm relative grid aspect-square w-28 shrink-0 place-items-center overflow-hidden rounded-[16px] border-2 md:w-full">
-                    <Art src={ROUND_ART[r.scaffold]} alt="" className="h-[86%] w-[86%] object-contain" />
+                    <Art src={roundArt(r)} alt="" className="h-[86%] w-[86%] object-contain" />
                     <span className="font-sign text-sticker absolute top-1.5 left-2.5 text-[30px] leading-none">{i + 1}</span>
                   </div>
                   <div className="min-w-0">
@@ -135,36 +137,38 @@ export function RoundsTab({ state, config, edit }: { state: PublicState; config:
                   <div>
                     <div className="font-display text-body text-ink mb-1.5 font-bold">Phone layout</div>
                     <div role="radiogroup" aria-label="Phone layout" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      {SCAFFOLDS.map((s) => {
-                        const on = r.scaffold === s.value;
-                        return (
-                          <button
-                            key={s.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={on}
-                            onClick={() => update(i, { scaffold: s.value })}
-                            className={cx(
-                              "flex cursor-pointer items-start gap-2.5 rounded-[14px] border-2 p-3 text-left transition-all",
-                              on ? "border-line bg-goldenrod/60 shadow-control" : "border-line/20 bg-surface-plain hover:border-line/60",
-                            )}
-                          >
-                            <span
-                              className={cx(
-                                "border-line mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2",
-                                on ? "bg-ink" : "bg-surface-plain",
-                              )}
-                            >
-                              {on && <span className="bg-goldenrod h-2 w-2 rounded-full" />}
-                            </span>
-                            <span className="min-w-0">
-                              <span className="font-display text-ink block text-[14.5px] leading-tight font-extrabold">{s.title}</span>
-                              <span className="text-ink-muted mt-0.5 block text-[12.5px] leading-snug">{s.blurb}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {SCAFFOLDS.map((s) => (
+                        <Choice key={s.value} on={r.scaffold === s.value} title={s.title} blurb={s.blurb} onClick={() => update(i, { scaffold: s.value })} />
+                      ))}
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="font-display text-body text-ink mb-1.5 font-bold">Who writes</div>
+                    <div role="radiogroup" aria-label="Who writes" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <Choice on={!finalists} title="Everyone" blurb="Every chef writes an offer." onClick={() => update(i, { finalists: 0 })} />
+                      <Choice
+                        on={finalists > 0}
+                        disabled={i === 0 && !finalists}
+                        title="Only the top finalists"
+                        blurb={i === 0 ? "Not in round 1: nobody has a score yet." : "Everyone else watches this round."}
+                        onClick={() => !finalists && update(i, { finalists: 5 })}
+                      />
+                    </div>
+                    {finalists > 0 && (
+                      <div className="font-display text-ink mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-[15px] font-bold">
+                        Only the top
+                        <Stepper value={finalists} min={1} max={40} onChange={(n) => update(i, { finalists: n })} label="Number of finalists" />
+                        {finalists === 1 ? "chef writes" : "chefs write"}
+                      </div>
+                    )}
+                    {i === 0 && finalists > 0 && (
+                      <p className="text-sunset-orange mt-2 text-[13.5px] font-bold">⚠️ Round 1 can’t be a finals round. Switch it to Everyone before saving.</p>
+                    )}
+                    <p className="text-ink-soft mt-2 text-[13.5px] leading-snug">
+                      Finalists are the top {finalists > 0 ? finalists : "chefs"} by best score from earlier rounds; everyone else watches and plays the
+                      mini-game. You can swap people when the round starts.
+                    </p>
                   </div>
 
                   <Field
@@ -203,7 +207,10 @@ export function RoundsTab({ state, config, edit }: { state: PublicState; config:
           onClick={() =>
             edit((c) => ({
               ...c,
-              rounds: [...c.rounds, { name: "Bonus", subtitle: "One more for the road.", topicId: c.topics[0].id, scaffold: "guided", minutes: 5, tips: [] }],
+              rounds: [
+                ...c.rounds,
+                { name: "Bonus", subtitle: "One more for the road.", topicId: c.topics[0].id, scaffold: "guided", minutes: 5, tips: [], finalists: 0 },
+              ],
             }))
           }
         >
@@ -242,6 +249,43 @@ function IconBtn({
       )}
     >
       {children}
+    </button>
+  );
+}
+
+/** One option in a row of radio cards. */
+function Choice({
+  on,
+  title,
+  blurb,
+  onClick,
+  disabled,
+}: {
+  on: boolean;
+  title: React.ReactNode;
+  blurb: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      disabled={disabled}
+      onClick={onClick}
+      className={cx(
+        "flex cursor-pointer items-start gap-2.5 rounded-[14px] border-2 p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-55",
+        on ? "border-line bg-goldenrod/60 shadow-control" : "border-line/20 bg-surface-plain hover:border-line/60 disabled:hover:border-line/20",
+      )}
+    >
+      <span className={cx("border-line mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2", on ? "bg-ink" : "bg-surface-plain")}>
+        {on && <span className="bg-goldenrod h-2 w-2 rounded-full" />}
+      </span>
+      <span className="min-w-0">
+        <span className="font-display text-ink block text-[14.5px] leading-tight font-extrabold">{title}</span>
+        <span className="text-ink-muted mt-0.5 block text-[13px] leading-snug">{blurb}</span>
+      </span>
     </button>
   );
 }

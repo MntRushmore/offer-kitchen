@@ -8,6 +8,7 @@ import type { GameConfig, PublicState } from "@/lib/types";
 import { Badge, Button, ChefHat, cx, Field, Input, Logo, Mascot, ShowProvider } from "../ui";
 import { DemoTab } from "./DemoTab";
 import { GraderTab } from "./GraderTab";
+import { HelpBanner } from "./HelpBanner";
 import { LiveTab } from "./LiveTab";
 import { PlayersTab } from "./PlayersTab";
 import { RoundsTab } from "./RoundsTab";
@@ -198,25 +199,29 @@ function Console({
     <div className="bg-bg bg-paper min-h-dvh">
       <TopBar state={state} offline={offline} logout={logout} />
 
-      {/* Phones and tablets: a scrolling tab strip */}
-      <nav className="border-line bg-surface/95 no-scrollbar sticky top-0 z-30 flex gap-1.5 overflow-x-auto border-b-2 px-3 py-2 backdrop-blur lg:hidden">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            data-mtab={t.id}
-            onClick={() => setTab(t.id)}
-            className={cx(
-              "font-display relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[11px] border-2 px-3 py-1.5 text-[14px] font-bold whitespace-nowrap transition-all",
-              tab === t.id ? "border-line bg-goldenrod shadow-control" : "text-ink/75 border-transparent",
-            )}
-          >
-            <span>{t.emoji}</span>
-            {t.label}
-            {dirtyTabs[t.id] && <span className="bg-sunset-orange border-line absolute -top-1 -right-1 h-3 w-3 rounded-full border-2" />}
-          </button>
-        ))}
-      </nav>
+      {/* Sticks with the tab strip on phones; on desktops only the help card catches taps, so the sidebar stays usable. */}
+      <div className="sticky top-0 z-30 lg:pointer-events-none lg:top-16">
+        {/* Phones and tablets: a scrolling tab strip */}
+        <nav className="border-line bg-surface/95 no-scrollbar flex gap-1.5 overflow-x-auto border-b-2 px-3 py-2 backdrop-blur lg:hidden">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              data-mtab={t.id}
+              onClick={() => setTab(t.id)}
+              className={cx(
+                "font-display relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[11px] border-2 px-3 py-1.5 text-[14px] font-bold whitespace-nowrap transition-all",
+                tab === t.id ? "border-line bg-goldenrod shadow-control" : "text-ink/75 border-transparent",
+              )}
+            >
+              <span>{t.emoji}</span>
+              {t.label}
+              {dirtyTabs[t.id] && <span className="bg-sunset-orange border-line absolute -top-1 -right-1 h-3 w-3 rounded-full border-2" />}
+            </button>
+          ))}
+        </nav>
+        <HelpBanner state={state} act={act} serverNow={serverNow} />
+      </div>
 
       <div className="mx-auto flex max-w-[1480px] gap-8 px-4 sm:px-6 lg:px-8">
         <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] w-[232px] shrink-0 flex-col gap-1.5 overflow-y-auto py-6 lg:flex">

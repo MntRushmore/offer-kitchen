@@ -45,6 +45,8 @@ export interface RoundConfig {
   scaffold: Scaffold;
   minutes: number;
   tips: string[];
+  /** 0 = everyone writes. N = only the top N by best earlier score write; everyone else watches. */
+  finalists?: number;
 }
 
 export interface TierLabel {
@@ -118,6 +120,8 @@ export interface GameState {
   autopilot: boolean;
   announcement: { text: string; at: number } | null;
   cue: { id: SoundCue; at: number } | null;
+  /** Who writes in a finalists-only round. Picked when that round starts; the host can swap people. */
+  finalists: { round: number; ids: string[] } | null;
   updatedAt: number;
 }
 
@@ -208,6 +212,13 @@ export interface MeView {
   rounds: MeRound[];
   /** Demo seats only: the offer this phone will type for the current round. */
   script?: { text: string; fields: GuidedFields | null } | null;
+  /** When this player asked an organizer for help; null once someone has helped. */
+  helpAt: number | null;
+}
+
+export interface HelpRequest {
+  playerId: string;
+  at: number;
 }
 
 export interface AdminView {
@@ -217,6 +228,8 @@ export interface AdminView {
   aiConfigured: boolean;
   storeKind: "redis" | "memory";
   defaultPrompt: string;
+  /** Open help requests, oldest first. */
+  help: HelpRequest[];
 }
 
 /** The slice of ShowSettings every screen needs. */

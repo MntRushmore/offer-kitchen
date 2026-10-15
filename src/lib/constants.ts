@@ -31,8 +31,13 @@ export function topicImage(topic: Pick<TopicCard, "image">): string | null {
 export const ROUND_ART: Record<Scaffold, string> = {
   blank: "/art/round-raw.webp",
   checklist: "/art/round-seasoned.webp",
-  guided: "/art/round-grandslam.webp",
+  guided: "/art/topic-generic.webp",
 };
+
+/** A finalists round is the Grand Slam, whatever its scaffold. */
+export function roundArt(round: Pick<RoundConfig, "scaffold" | "finalists">) {
+  return round.finalists ? "/art/round-grandslam.webp" : ROUND_ART[round.scaffold];
+}
 
 export const MASCOT = {
   wave: "/art/mascot-wave.webp",
@@ -260,6 +265,19 @@ export const DEFAULT_TOPICS: TopicCard[] = [
   },
 ];
 
+const GRAND_SLAM_ROUND: RoundConfig = {
+  name: "Grand Slam",
+  subtitle: "The top 5 chefs. One blank page. Everyone else watches.",
+  topicId: "birthday",
+  scaffold: "blank",
+  minutes: 5,
+  tips: [
+    "Everything you've learned, in one offer: buyer, result, price, guarantee, delivery.",
+    "Numbers beat adjectives. Every claim gets a $ or a deadline.",
+  ],
+  finalists: 5,
+};
+
 export const DEFAULT_ROUNDS: RoundConfig[] = [
   {
     name: "Raw",
@@ -268,6 +286,7 @@ export const DEFAULT_ROUNDS: RoundConfig[] = [
     scaffold: "blank",
     minutes: 3,
     tips: ["Write the offer you'd text a neighbor who might buy.", "No rules yet — just go!"],
+    finalists: 0,
   },
   {
     name: "Seasoned",
@@ -281,10 +300,11 @@ export const DEFAULT_ROUNDS: RoundConfig[] = [
       "What happens if it doesn't work? Spell out the guarantee.",
       "Show you can deliver: your hours, your costs, your margin.",
     ],
+    finalists: 0,
   },
   {
-    name: "Grand Slam",
-    subtitle: "Plate the whole thing.",
+    name: "Follow the Recipe",
+    subtitle: "Six steps. Fill in each one.",
     topicId: "birthday",
     scaffold: "guided",
     minutes: 7,
@@ -294,7 +314,9 @@ export const DEFAULT_ROUNDS: RoundConfig[] = [
       "Buzzwords earn zero. 'Dream outcome' isn't a term of the deal.",
       "Your pitch is one sentence: buyer + result.",
     ],
+    finalists: 0,
   },
+  GRAND_SLAM_ROUND,
 ];
 
 export const DEFAULT_SHOW: ShowSettings = {
@@ -344,7 +366,31 @@ export function withDefaults(saved: Partial<GameConfig> | null): GameConfig {
     const same = d && BRIEF_SOURCE.every((k) => d[k] === t[k]);
     return same ? { ...t, brief: d.brief } : t;
   });
-  return { ...DEFAULT_CONFIG, ...s, ...(topics && { topics }), show };
+  return { ...DEFAULT_CONFIG, ...s, ...(topics && { topics }), ...(s.rounds && { rounds: upgradeRounds(s.rounds) }), show };
+}
+
+/**
+ * The show used to be three rounds ending in the guided one. A saved setup of
+ * that shape (from before finals existed) becomes the four-round show: the
+ * guided round stays third and a top-5 Grand Slam final is added on the same
+ * topic. Saving rounds in admin writes `finalists`, so this only runs once.
+ */
+function upgradeRounds(rounds: RoundConfig[]): RoundConfig[] {
+  const old = rounds.length === 3 && rounds.every((r) => r.finalists === undefined) && rounds.map((r) => r.scaffold).join() === "blank,checklist,guided";
+  if (!old) return rounds;
+  const [r1, r2, r3] = rounds;
+  const recipe = DEFAULT_ROUNDS[2];
+  return [
+    { ...r1, finalists: 0 },
+    { ...r2, finalists: 0 },
+    {
+      ...r3,
+      name: r3.name === "Grand Slam" ? recipe.name : r3.name,
+      subtitle: r3.subtitle === "Plate the whole thing." ? recipe.subtitle : r3.subtitle,
+      finalists: 0,
+    },
+    { ...GRAND_SLAM_ROUND, topicId: r3.topicId },
+  ];
 }
 
 const BRIEF_SOURCE = ["buyer", "alternatives", "scope", "economics"] as const;

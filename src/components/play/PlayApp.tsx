@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { readStorage, useQueryParam, useStoredValue, writeStorage } from "@/lib/client/storage";
 import { formatClock, useGameState, useTick } from "@/lib/client/useGame";
-import { AVATARS, avatarSrc, CRITERIA, DEFAULT_SHOW, MASCOT, randomChefName, REACTIONS, ROUND_ART } from "@/lib/constants";
-import type { CriterionId, Grade, GuidedFields, MeRound, PublicState, RoundView } from "@/lib/types";
+import { AVATARS, avatarSrc, CRITERIA, DEFAULT_SHOW, MASCOT, randomChefName, REACTIONS, roundArt } from "@/lib/constants";
+import type { CriterionId, Grade, GuidedFields, MeRound, Player, PublicState, RoundView } from "@/lib/types";
 import {
   Art,
   Avatar,
@@ -28,9 +28,21 @@ import {
   TopicFacts,
   useTier,
 } from "../ui";
+import { KitchenRush } from "./KitchenRush";
 
 const GUIDED_ORDER: CriterionId[] = ["promise", "difference", "price", "guarantee", "delivery", "pitch"];
 const REACT_PHASES = ["lobby", "leaderboard", "spotlight", "final"];
+
+/** In a finalists-only round: who's cooking, and whether this phone is just watching. */
+function finalsOf(state: PublicState) {
+  const { roundIndex } = state.game;
+  const n = state.rounds[roundIndex]?.finalists ?? 0;
+  if (!n || state.game.phase === "lobby") return null;
+  const f = state.game.finalists;
+  const ids = f?.round === roundIndex ? f.ids : [];
+  const me = state.me?.player.id;
+  return { n, ids, watching: !me || !ids.includes(me) };
+}
 /** Demo-stage phones that join and type on their own. Any other ?seat= is just a separate player slot. */
 const SCRIPTED_SEATS = ["a", "b"];
 
@@ -62,6 +74,16 @@ export default function PlayApp({ onStale }: { onStale?: () => void } = {}) {
     await fetch("/api/leave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ playerId: pid }) }).catch(() => {});
     setPid(null);
   }, [pid, setPid]);
+
+  const onHelp = useCallback(
+    async (on: boolean) => {
+      if (!pid) return;
+      if (!on && !confirm("Cancel your help request?")) return;
+      await fetch("/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ playerId: pid, on }) }).catch(() => {});
+      await refresh();
+    },
+    [pid, refresh],
+  );
 
   // Demo-stage phones join themselves (and rejoin after the demo restarts).
   const joining = useRef(false);
@@ -101,7 +123,7 @@ export default function PlayApp({ onStale }: { onStale?: () => void } = {}) {
 
   return (
     <ShowProvider value={state?.show ?? DEFAULT_SHOW}>
-      <Shell state={state ?? undefined} serverNow={serverNow} onLeave={scripted ? undefined : onLeave}>
+      <Shell state={state ?? undefined} serverNow={serverNow} onLeave={scripted ? undefined : onLeave} onHelp={scripted ? undefined : onHelp}>
         {body}
       </Shell>
     </ShowProvider>
@@ -112,45 +134,117 @@ function Shell({
   state,
   serverNow,
   onLeave,
+  onHelp,
   children,
 }: {
   state?: PublicState;
   serverNow: () => number;
   onLeave?: () => void;
+  onHelp?: (on: boolean) => Promise<void>;
   children: React.ReactNode;
 }) {
   const me = state?.me?.player;
-  const canReact = Boolean(me && state?.show.reactions && REACT_PHASES.includes(state.game.phase));
+  const helpAt = state?.me?.helpAt ?? null;
+  // The audience of a finalists round cheers while the finalists cook.
+  const watching = Boolean(state && finalsOf(state)?.watching && ["intro", "writing", "grading"].includes(state.game.phase));
+  const canReact = Boolean(me && state?.show.reactions && (REACT_PHASES.includes(state.game.phase) || watching));
+  const [helpBusy, setHelpBusy] = useState(false);
+  const help = async (on: boolean) => {
+    setHelpBusy(true);
+    await onHelp?.(on);
+    setHelpBusy(false);
+  };
   return (
     <div className="bg-tiles bg-tiles-sm flex min-h-dvh flex-col">
-      <header className="border-line bg-surface/95 sticky top-0 z-30 flex items-center gap-3 border-b-[3px] px-4 py-2.5 backdrop-blur">
+      <header className="border-line bg-surface/95 sticky top-0 z-30 flex items-center gap-2 border-b-[3px] px-3 py-2.5 backdrop-blur">
         <div className="min-w-0 flex-1">
-          {/* With a name pill and Leave beside it, narrow phones only fit the hat. */}
-          <div className={cx(me && "hidden min-[440px]:block")}>
+          {/* With the help button and name pill beside it, narrow phones only fit the hat. */}
+          <div className={cx(me && "hidden min-[480px]:block")}>
             <Logo size="sm" />
           </div>
-          {me && <ChefHat size={30} className="animate-wiggle min-[440px]:hidden" />}
+          {me && <ChefHat size={30} className="animate-wiggle min-[480px]:hidden" />}
         </div>
-        {me && (
-          <div className="border-line bg-goldenrod flex max-w-[40%] items-center gap-1.5 rounded-full border-2 py-0.5 pr-3 pl-0.5">
-            <Avatar player={me} size={30} />
-            <span className="font-display truncate text-[16px] font-extrabold">{me.name}</span>
-          </div>
-        )}
-        {me && onLeave && (
+        {me && onHelp && (
           <button
             type="button"
-            onClick={onLeave}
-            className="border-line bg-surface text-ink shadow-control font-display shrink-0 rounded-full border-2 px-3.5 py-1 text-[15px] font-extrabold active:translate-y-px"
+            onClick={() => help(!helpAt)}
+            disabled={helpBusy}
+            className={cx(
+              "border-line text-ink shadow-control font-display h-10 shrink-0 rounded-full border-2 px-3.5 text-[15px] font-extrabold active:translate-y-px disabled:opacity-60",
+              helpAt ? "bg-goldenrod" : "bg-surface",
+            )}
           >
-            Leave
+            {helpAt ? "🙋 On the way" : "🙋 Need help?"}
           </button>
         )}
+        {me && <NameMenu me={me} onLeave={onLeave} />}
       </header>
+      <AnimatePresence>
+        {me && helpAt && (
+          <motion.div
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -40, opacity: 0 }}
+            className="border-line bg-goldenrod shadow-card mx-3 mt-3 flex items-center gap-3 rounded-[16px] border-2 px-3 py-2.5"
+          >
+            <span className="animate-wiggle text-[30px] leading-none">🙋</span>
+            <div className="min-w-0 flex-1">
+              <div className="font-display text-[17px] leading-tight font-extrabold">An organizer is on the way</div>
+              <div className="text-ink text-[15px] leading-snug font-semibold">Raise your hand so they can find you.</div>
+            </div>
+            {onHelp && (
+              <button
+                type="button"
+                onClick={() => help(false)}
+                disabled={helpBusy}
+                className="border-line bg-surface font-display h-10 shrink-0 rounded-full border-2 px-3 text-[15px] font-bold"
+              >
+                Cancel
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
       {state && <PhoneAnnouncement state={state} serverNow={serverNow} />}
       <main className={cx("mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-5", canReact ? "pb-28" : "pb-10")}>{children}</main>
       <div className="bg-butcher border-line h-8 border-t-4" />
       {canReact && state?.me && <ReactionBar playerId={state.me.player.id} />}
+    </div>
+  );
+}
+
+/** The chef's name pill; tapping it offers Leave, which used to crowd the header. */
+function NameMenu({ me, onLeave }: { me: Player; onLeave?: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative max-w-[42%] min-w-0">
+      <button
+        type="button"
+        onClick={() => onLeave && setOpen((o) => !o)}
+        aria-expanded={open}
+        className="border-line bg-goldenrod flex h-10 w-full items-center gap-1.5 rounded-full border-2 pr-3 pl-0.5"
+      >
+        <Avatar player={me} size={32} />
+        <span className="font-display truncate text-[16px] font-extrabold">{me.name}</span>
+        {onLeave && <span aria-hidden className="text-[12px]">▼</span>}
+      </button>
+      {open && onLeave && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="border-line bg-surface shadow-raised absolute top-12 right-0 z-50 w-48 rounded-[14px] border-2 p-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onLeave();
+              }}
+              className="text-sunset-orange font-display w-full rounded-[10px] px-3 py-2.5 text-left text-[16px] font-extrabold hover:bg-surface-alt"
+            >
+              🚪 Leave the game
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -353,15 +447,22 @@ function PhaseView({ state, serverNow, refresh, seat }: { state: PublicState; se
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [key]);
+  const finals = finalsOf(state);
+  // Someone the host dropped from the final after they plated still gets their result.
+  const audience = Boolean(finals?.watching && !mine?.submission);
   let body: React.ReactNode;
   if (phase === "lobby") body = <LobbyWait state={state} />;
-  else if (phase === "intro") body = <IntroWait round={round} index={roundIndex} prevGrade={prevGrade} />;
+  else if (phase === "intro")
+    body = finals ? <FinalsIntro state={state} prevGrade={prevGrade} /> : <IntroWait round={round} index={roundIndex} prevGrade={prevGrade} />;
   else if (phase === "writing")
-    body = (
+    body = audience ? (
+      <Audience state={state} serverNow={serverNow} />
+    ) : (
       <WriteScreen state={state} round={round} index={roundIndex} mine={mine} serverNow={serverNow} refresh={refresh} prevGrade={prevGrade} seat={seat} />
     );
   else if (phase === "final") body = <Journey state={state} />;
-  else body = <AfterLock mine={mine} revealed={state.scoresRevealed[roundIndex]} />;
+  else if (audience) body = <Audience state={state} serverNow={serverNow} />;
+  else body = <AfterLock mine={mine} revealed={state.scoresRevealed[roundIndex]} finals={Boolean(finals)} />;
 
   return (
     <AnimatePresence mode="wait">
@@ -412,6 +513,7 @@ function LobbyWait({ state }: { state: PublicState }) {
         </SpeechBubble>
       </div>
       {state.show.reactions && <p className="text-ink-soft text-[15px] font-bold">Tap the emojis below — they fly up on the TV 👇</p>}
+      <KitchenRush className="mt-2 w-full text-left" />
     </div>
   );
 }
@@ -429,7 +531,7 @@ function IntroWait({ round, index, prevGrade }: { round: RoundView; index: numbe
   return (
     <div className="flex flex-col gap-5">
       <div className="relative mt-1 flex flex-col items-center text-center">
-        <Art src={ROUND_ART[round.scaffold]} className="absolute -top-2 -right-1 h-20 w-20 rotate-6 object-contain" />
+        <Art src={roundArt(round)} className="absolute -top-2 -right-1 h-20 w-20 rotate-6 object-contain" />
         <div className="font-sign text-sticker text-[54px] leading-none">Round {index + 1}</div>
         <h1 className="font-sign text-ink mt-1 text-[36px] leading-none">{round.name}</h1>
         <p className="text-ink-muted mt-2 text-[17px] font-semibold">{round.subtitle}</p>
@@ -437,6 +539,108 @@ function IntroWait({ round, index, prevGrade }: { round: RoundView; index: numbe
       {round.topic && <OfferBrief topic={round.topic} />}
       {prevGrade && <NextMoveCallout grade={prevGrade} />}
       <div className="font-display text-ink-muted animate-pulse text-center text-xl font-bold">The kitchen opens in a sec…</div>
+    </div>
+  );
+}
+
+/* ---------- Finals ---------- */
+
+function FinalsIntro({ state, prevGrade }: { state: PublicState; prevGrade: Grade | null | undefined }) {
+  const { roundIndex } = state.game;
+  const round = state.rounds[roundIndex];
+  const finals = finalsOf(state)!;
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="relative mt-1 flex flex-col items-center text-center">
+        <Art src={roundArt(round)} className="absolute -top-2 -right-1 h-20 w-20 rotate-6 object-contain" />
+        <div className="font-sign text-sticker text-[54px] leading-none">Round {roundIndex + 1}</div>
+        <h1 className="font-sign text-ink mt-1 text-[36px] leading-none">{round.name}</h1>
+      </div>
+      {finals.watching ? (
+        <>
+          <div className="border-line bg-azalea shadow-card rounded-[20px] border-2 px-4 py-4 text-center">
+            <div className="font-display text-[22px] font-extrabold">🍿 You&apos;re in the audience</div>
+            <p className="text-ink mt-1 text-[17px] leading-snug font-semibold">
+              The top {finals.n} chefs cook one last offer. Watch the TV and cheer them on!
+            </p>
+          </div>
+          <FinalistList state={state} />
+          <KitchenRush />
+        </>
+      ) : (
+        <>
+          <motion.div
+            initial={{ scale: 0.6, rotate: -6, opacity: 0 }}
+            animate={{ scale: 1, rotate: -2, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 220, damping: 12 }}
+            className="border-line bg-goldenrod shadow-card rounded-[20px] border-2 px-4 py-4 text-center"
+          >
+            <div className="font-sign text-[34px] leading-none">🏆 You made the final!</div>
+            <p className="text-ink mt-2 text-[17px] leading-snug font-semibold">One blank page. Show everything you&apos;ve learned.</p>
+          </motion.div>
+          {round.topic && <OfferBrief topic={round.topic} />}
+          {prevGrade && <NextMoveCallout grade={prevGrade} />}
+          <div className="font-display text-ink-muted animate-pulse text-center text-xl font-bold">The kitchen opens in a sec…</div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The finalists, with a tick once each has plated. */
+function FinalistList({ state }: { state: PublicState }) {
+  const finals = finalsOf(state);
+  const pm = new Map(state.players.map((p) => [p.id, p]));
+  const plated = new Set((state.board[state.game.roundIndex] ?? []).map((e) => e.playerId));
+  const players = (finals?.ids ?? []).map((id) => pm.get(id)).filter((p): p is Player => Boolean(p));
+  if (!players.length) return null;
+  return (
+    <div className="border-line bg-surface shadow-card rounded-[20px] border-2 p-4">
+      <div className="font-display text-[18px] font-extrabold">🏆 The finalists</div>
+      <div className="mt-3 flex flex-col gap-2.5">
+        {players.map((p) => (
+          <div key={p.id} className="flex items-center gap-3">
+            <Avatar player={p} size={40} />
+            <span className="font-display min-w-0 flex-1 truncate text-[18px] font-bold">{p.name}</span>
+            {state.game.phase === "writing" && (
+              <span className={cx("font-display text-[15px] font-bold", plated.has(p.id) ? "text-[#3c7a2c]" : "text-ink-soft")}>
+                {plated.has(p.id) ? "✓ Plated" : "Cooking…"}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Everyone who isn't in the final: what's happening, who's cooking, and something to do. */
+function Audience({ state, serverNow }: { state: PublicState; serverNow: () => number }) {
+  useTick(1000);
+  const { phase, pausedLeft, roundEndsAt } = state.game;
+  const left = pausedLeft ?? (roundEndsAt ? roundEndsAt - serverNow() : null);
+  const line =
+    phase === "writing"
+      ? "The finalists are cooking. Watch the TV and cheer with the emojis below!"
+      : phase === "grading"
+        ? "The judge is tasting the finalists' offers…"
+        : "Eyes on the TV: who takes the Golden Spatula?";
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="border-line bg-azalea shadow-card flex items-center gap-3 rounded-[20px] border-2 px-4 py-3">
+        <span className="text-[34px] leading-none">🍿</span>
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-[19px] font-extrabold">Grand Slam final</div>
+          <p className="text-ink text-[16px] leading-snug font-semibold">{line}</p>
+        </div>
+        {phase === "writing" && left !== null && (
+          <div className="border-line bg-goldenrod font-display rounded-[12px] border-2 px-2.5 py-0.5 text-[22px] font-extrabold tabular-nums">
+            {formatClock(Math.max(0, left))}
+          </div>
+        )}
+      </div>
+      {phase !== "leaderboard" && phase !== "spotlight" && <FinalistList state={state} />}
+      <KitchenRush />
     </div>
   );
 }
@@ -500,14 +704,13 @@ function WriteScreen({
   useEffect(() => writeStorage(draftKey, JSON.stringify(draft)), [draft, draftKey]);
 
   const submitted = mine.submission;
-  const draftText = guided ? GUIDED_ORDER.map((id) => draft.fields[id] ?? "").join("|") : draft.text;
-  const submittedText = submitted
-    ? guided
-      ? GUIDED_ORDER.map((id) => submitted.fields?.[id] ?? "").join("|")
-      : submitted.text
-    : null;
+  // The server trims each box, so compare trimmed boxes: a stray space or newline isn't an unsaved change.
+  const asSaved = (fields: GuidedFields | null | undefined) => GUIDED_ORDER.map((id) => fields?.[id]?.trim() ?? "").join("|");
+  const draftText = guided ? asSaved(draft.fields) : draft.text.trim();
+  const submittedText = submitted ? (guided ? asSaved(submitted.fields) : submitted.text.trim()) : null;
   const empty = guided ? GUIDED_ORDER.every((id) => !draft.fields[id]?.trim()) : !draft.text.trim();
-  const dirty = submittedText === null || draftText.trim() !== submittedText.trim();
+  const dirty = submittedText === null || draftText !== submittedText;
+  const editing = useEditingField();
 
   const paused = state.game.pausedLeft !== null;
   const left = paused ? state.game.pausedLeft : state.game.roundEndsAt ? state.game.roundEndsAt - serverNow() : null;
@@ -610,9 +813,21 @@ function WriteScreen({
   const words = (guided ? Object.values(draft.fields).join(" ") : draft.text).trim().split(/\s+/).filter(Boolean).length;
   const hot = left !== null && left < 30_000 && !paused;
 
+  const clock = timeUp ? "TIME!" : left !== null ? `${paused ? "⏸ " : ""}${formatClock(left)}` : "--:--";
+  const plateLabel = busy ? "Plating…" : submitted ? (dirty ? "Update my plate ✏️" : "✓ Plated") : "Plate it! 🛎️";
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="border-line bg-surface shadow-card sticky top-[64px] z-20 flex items-center justify-between gap-3 rounded-[16px] border-2 py-1.5 pr-1.5 pl-4">
+      {editing && !typing && (
+        <TypingBar clock={clock} hot={hot} label={plateLabel} canPlate={!busy && !empty && dirty} onPlate={plate} />
+      )}
+      <div
+        className={cx(
+          "border-line bg-surface shadow-card sticky top-[64px] z-20 flex items-center justify-between gap-3 rounded-[16px] border-2 py-1.5 pr-1.5 pl-4",
+          // The typing bar stands in for it while the keyboard is up; keep its space so nothing jumps.
+          editing && !typing && "invisible",
+        )}
+      >
         <div className="font-display min-w-0 truncate text-[18px] font-extrabold">
           Round {index + 1} <span className="text-ink-soft">·</span> {round.name}
         </div>
@@ -622,7 +837,7 @@ function WriteScreen({
             hot ? "bg-sunset-orange animate-pulse text-white" : paused ? "bg-steel" : "bg-goldenrod",
           )}
         >
-          {timeUp ? "TIME!" : left !== null ? `${paused ? "⏸ " : ""}${formatClock(left)}` : "--:--"}
+          {clock}
         </div>
       </div>
 
@@ -669,6 +884,49 @@ function WriteScreen({
 
       {prevGrade && <NextMoveCallout grade={prevGrade} />}
 
+      {guided ? (
+        <div className="flex flex-col gap-4">
+          {GUIDED_ORDER.map((id, i) => (
+            <div key={id} className="border-line bg-surface shadow-card rounded-[18px] border-2 p-4">
+              <label htmlFor={`field-${id}`} className="mb-2.5 flex items-center gap-2">
+                <span className="border-line bg-goldenrod font-display grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 text-[15px] font-extrabold">
+                  {i + 1}
+                </span>
+                <span className="font-display text-[19px] leading-tight font-extrabold">
+                  {CRITERIA[id].emoji} {CRITERIA[id].label}
+                </span>
+              </label>
+              <Textarea
+                value={draft.fields[id] ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, fields: { ...d.fields, [id]: e.target.value } }))}
+                rows={id === "pitch" ? 2 : 3}
+                maxLength={1200}
+                placeholder={CRITERIA[id].placeholder}
+                readOnly={typing}
+                id={`field-${id}`}
+                className={cx(GROW, id === "pitch" ? "min-h-20" : "min-h-24")}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="border-line bg-surface shadow-card rounded-[18px] border-2 p-3">
+          <label htmlFor="field-text" className="font-display mb-2 block px-1 text-[18px] font-extrabold">
+            ✍️ Your offer
+          </label>
+          <Textarea
+            value={draft.text}
+            onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
+            rows={6}
+            maxLength={4000}
+            placeholder="Write it like you'd say it to a real customer…"
+            readOnly={typing}
+            id="field-text"
+            className={cx(GROW, "min-h-44")}
+          />
+        </div>
+      )}
+
       {round.scaffold === "checklist" && (
         <div className="border-line bg-surface shadow-card rounded-[18px] border-2 p-4">
           <div className="font-display text-[18px] font-extrabold">Did you include all six?</div>
@@ -703,53 +961,11 @@ function WriteScreen({
         </div>
       )}
 
-      {guided ? (
-        <div className="flex flex-col gap-4">
-          {GUIDED_ORDER.map((id, i) => (
-            <div key={id} className="border-line bg-surface shadow-card rounded-[18px] border-2 p-4">
-              <label htmlFor={`field-${id}`} className="mb-2.5 flex items-center gap-2">
-                <span className="border-line bg-goldenrod font-display grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 text-[15px] font-extrabold">
-                  {i + 1}
-                </span>
-                <span className="font-display text-[19px] leading-tight font-extrabold">
-                  {CRITERIA[id].emoji} {CRITERIA[id].label}
-                </span>
-              </label>
-              <Textarea
-                value={draft.fields[id] ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, fields: { ...d.fields, [id]: e.target.value } }))}
-                rows={id === "pitch" ? 2 : 3}
-                maxLength={1200}
-                placeholder={CRITERIA[id].placeholder}
-                readOnly={typing}
-                id={`field-${id}`}
-                className="text-[17px]"
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="border-line bg-surface shadow-card rounded-[18px] border-2 p-3">
-          <label htmlFor="field-text" className="font-display mb-2 block px-1 text-[18px] font-extrabold">
-            ✍️ Your offer
-          </label>
-          <Textarea
-            value={draft.text}
-            onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
-            rows={round.scaffold === "blank" ? 9 : 11}
-            maxLength={4000}
-            placeholder="Write it like you'd say it to a real customer…"
-            readOnly={typing}
-            id="field-text"
-            className="text-[17px]"
-          />
-        </div>
-      )}
 
       <div className="text-caption text-ink-soft -mt-1 flex items-center justify-between px-1 font-bold">
         <span>{words} words</span>
         {submitted && !dirty && <span className="text-[#3c7a2c]">✓ Plated</span>}
-        {submitted && dirty && <span className="text-[#b45f0a]">Unsaved changes</span>}
+        {submitted && dirty && <span className="text-[#b45f0a]">Not saved yet: tap Update</span>}
       </div>
 
       {error && <div className="border-sunset-orange bg-surface text-sunset-orange rounded-[12px] border-2 px-3 py-2 text-center font-bold">{error}</div>}
@@ -768,22 +984,100 @@ function WriteScreen({
         </motion.div>
       ) : (
         <Button variant={submitted ? "brand" : "primary"} size="xl" onClick={plate} disabled={busy || empty || typing} className="w-full">
-          {busy ? "Plating…" : submitted ? "Update my plate ✏️" : "Plate it! 🛎️"}
+          {plateLabel}
         </Button>
       )}
+
+      {submitted && !dirty && !typing && <KitchenRush />}
+    </div>
+  );
+}
+
+/** Textareas grow with what's typed (where supported), and focusing one leaves room for the typing bar above it. */
+const GROW = "text-[17px] [field-sizing:content] max-h-[60vh] scroll-mt-28 scroll-mb-6";
+
+/** True while a writable text box on the page has focus, i.e. the keyboard is (probably) up. */
+function useEditingField() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const el = document.activeElement;
+      setOn(el instanceof HTMLTextAreaElement && !el.readOnly);
+    };
+    // focusout fires before the next focusin when hopping between boxes; check after both.
+    const later = () => setTimeout(check, 0);
+    document.addEventListener("focusin", later);
+    document.addEventListener("focusout", later);
+    return () => {
+      document.removeEventListener("focusin", later);
+      document.removeEventListener("focusout", later);
+    };
+  }, []);
+  return on;
+}
+
+/** How far the visible area has scrolled inside the page; iOS pans it when the keyboard opens. */
+function useViewportTop() {
+  const [top, setTop] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setTop(vv.offsetTop);
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
+  return top;
+}
+
+/**
+ * While typing, the keyboard hides the Plate button and can push the sticky
+ * timer off screen. This bar is pinned to the top of what's actually visible.
+ */
+function TypingBar({ clock, hot, label, canPlate, onPlate }: { clock: string; hot: boolean; label: string; canPlate: boolean; onPlate: () => void }) {
+  const top = useViewportTop();
+  return (
+    <div
+      className="border-line bg-surface fixed inset-x-0 top-0 z-50 flex items-center gap-2 border-b-[3px] px-3 py-2"
+      style={{ transform: `translateY(${top}px)` }}
+    >
+      <div
+        className={cx(
+          "border-line font-display rounded-[10px] border-2 px-2.5 py-0.5 text-[20px] font-extrabold tabular-nums",
+          hot ? "bg-sunset-orange text-white" : "bg-goldenrod",
+        )}
+      >
+        {clock}
+      </div>
+      <button
+        type="button"
+        // Keep focus in the box until the tap lands, so the keyboard doesn't drop first.
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={() => (document.activeElement as HTMLElement | null)?.blur()}
+        className="font-display text-link ml-auto h-11 shrink-0 px-2 text-[16px] font-bold"
+      >
+        Done
+      </button>
+      <Button size="md" variant="primary" onPointerDown={(e) => e.preventDefault()} onClick={onPlate} disabled={!canPlate} className="h-11 shrink-0 px-4 text-[16px]">
+        {label}
+      </Button>
     </div>
   );
 }
 
 /* ---------- After the kitchen locks ---------- */
 
-function AfterLock({ mine, revealed }: { mine: MeRound; revealed: boolean }) {
+function AfterLock({ mine, revealed, finals }: { mine: MeRound; revealed: boolean; finals: boolean }) {
   if (!mine.submission) {
     return (
       <div className="border-line/40 bg-surface/90 flex flex-1 flex-col items-center justify-center gap-3 rounded-[22px] border-2 border-dashed px-6 py-14 text-center">
         <Mascot pose="shock" className="h-40" />
         <div className="font-sign text-[30px] leading-none">No plate this round</div>
-        <p className="text-ink-muted font-semibold">Catch the next one — watch the TV for what&apos;s coming.</p>
+        <p className="text-ink-muted text-[17px] font-semibold">Catch the next one — watch the TV for what&apos;s coming.</p>
       </div>
     );
   }
@@ -791,21 +1085,22 @@ function AfterLock({ mine, revealed }: { mine: MeRound; revealed: boolean }) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
         <motion.div animate={{ rotate: [-2, 2, -2] }} transition={{ repeat: Infinity, duration: 0.5 }}>
-          <Art src="/art/oven.webp" className="h-56 object-contain" />
+          <Art src="/art/oven.webp" className="h-40 object-contain" />
         </motion.div>
         <div className="font-sign text-[40px] leading-none">In the oven…</div>
-        <p className="text-ink-muted max-w-xs leading-snug font-semibold">
+        <p className="text-ink-muted max-w-xs text-[17px] leading-snug font-semibold">
           {mine.gradeStatus === "done"
             ? "Graded! Your result appears when the TV reveals it. 👀"
             : "The judge is tasting your offer. Your feedback lands here in a moment."}
         </p>
+        <KitchenRush className="mt-2 w-full text-left" />
       </div>
     );
   }
-  return <ResultCard grade={mine.grade} rank={revealed ? mine.rank : null} of={mine.of} />;
+  return <ResultCard grade={mine.grade} rank={revealed ? mine.rank : null} of={mine.of} finals={finals} />;
 }
 
-function ResultCard({ grade, rank, of }: { grade: Grade; rank: number | null; of: number | null }) {
+function ResultCard({ grade, rank, of, finals }: { grade: Grade; rank: number | null; of: number | null; finals: boolean }) {
   return (
     <div className="flex flex-col gap-4">
       <motion.div
@@ -824,7 +1119,7 @@ function ResultCard({ grade, rank, of }: { grade: Grade; rank: number | null; of
         {rank && of && (
           <div className="mt-3">
             <Chip>
-              #{rank} of {of} in the room
+              #{rank} of {of} {finals ? "finalists" : "in the room"}
             </Chip>
           </div>
         )}
@@ -885,7 +1180,7 @@ function Journey({ state }: { state: PublicState }) {
       <div className="border-line bg-surface shadow-card overflow-hidden rounded-[20px] border-2">
         {me.rounds.map((r, i) => (
           <div key={i} className="border-line/15 flex items-center gap-3 border-t px-4 py-3 first:border-t-0">
-            <Art src={ROUND_ART[state.rounds[i]?.scaffold ?? "blank"]} className="h-10 w-10 shrink-0 object-contain" />
+            <Art src={state.rounds[i] ? roundArt(state.rounds[i]) : ""} className="h-10 w-10 shrink-0 object-contain" />
             <div className="font-display min-w-0 flex-1 truncate text-[18px] font-extrabold">{state.rounds[i]?.name}</div>
             {r.grade ? (
               <>
@@ -895,7 +1190,7 @@ function Journey({ state }: { state: PublicState }) {
                 <JourneyLetter letter={r.grade.letter} />
               </>
             ) : (
-              <div className="text-ink-soft font-semibold">No plate</div>
+              <div className="text-ink-soft text-[16px] font-semibold">{state.rounds[i]?.finalists ? "🍿 Audience" : "No plate"}</div>
             )}
           </div>
         ))}

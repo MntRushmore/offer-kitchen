@@ -1,5 +1,5 @@
 import type { AdminAction } from "@/lib/game";
-import type { GameConfig, GameState, Phase } from "@/lib/types";
+import type { BoardEntry, GameConfig, GameState, Phase, Player, PublicState } from "@/lib/types";
 
 /** POST one host action; toasts `ok` on success and the server's message on failure. */
 export type Act = (body: AdminAction, ok?: string) => Promise<boolean>;
@@ -60,4 +60,34 @@ export function formatSeconds(s: number) {
   const r = Math.round(s % 60);
   if (!m) return `${r}s`;
   return r ? `${m}m ${r}s` : `${m} min`;
+}
+
+/** Each chef's best single score (and total) in the rounds before `round`. */
+export function earlierScores(board: BoardEntry[][], round: number) {
+  const m = new Map<string, { best: number; total: number }>();
+  for (let r = 0; r < round; r++) {
+    for (const e of board[r] ?? []) {
+      if (e.overall === undefined) continue;
+      const cur = m.get(e.playerId);
+      m.set(e.playerId, { best: cur ? Math.max(cur.best, e.overall) : e.overall, total: (cur?.total ?? 0) + e.overall });
+    }
+  }
+  return m;
+}
+
+/** Visible chefs ranked the way the server picks finalists: best earlier score, then total, then who joined first. Unscored chefs last. */
+export function rankByBest(state: PublicState, round: number): { player: Player; best: number | null }[] {
+  const scores = earlierScores(state.board, round);
+  const key = (p: Player) => scores.get(p.id) ?? { best: -1, total: 0 };
+  return state.players
+    .filter((p) => !p.hidden)
+    .sort((a, b) => key(b).best - key(a).best || key(b).total - key(a).total || a.joinedAt - b.joinedAt)
+    .map((p) => ({ player: p, best: scores.get(p.id)?.best ?? null }));
+}
+
+/** Who the server would pick as `round`'s finalists right now. */
+export function topChefs(state: PublicState, round: number, n: number) {
+  return rankByBest(state, round)
+    .filter((r) => r.best !== null)
+    .slice(0, n);
 }

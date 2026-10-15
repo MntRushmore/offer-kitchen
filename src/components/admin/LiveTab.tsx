@@ -6,10 +6,10 @@ import { TvApp } from "@/components/tv/TvApp";
 import { useStoredValue } from "@/lib/client/storage";
 import { formatClock, useTick } from "@/lib/client/useGame";
 import { REACTIONS, SOUND_CUES } from "@/lib/constants";
-import type { GameConfig, Phase, PublicState, SoundCue } from "@/lib/types";
-import { Avatar, Button, Chip, cx, GradeBadge, Input, Panel, scoreInk } from "../ui";
+import type { GameConfig, Phase, Player, PublicState, SoundCue } from "@/lib/types";
+import { Avatar, Button, Chip, cx, GradeBadge, Input, Panel, scoreInk, Select } from "../ui";
 import { ActButton, Boundary, Empty, Eyebrow, Toggle } from "./controls";
-import { type Act, ANNOUNCE_MS, msLeft, PHASE_EMOJI, PHASE_LABEL, plural } from "./shared";
+import { type Act, ANNOUNCE_MS, earlierScores, msLeft, PHASE_EMOJI, PHASE_LABEL, plural, rankByBest, topChefs } from "./shared";
 
 interface Props {
   state: PublicState;
@@ -21,12 +21,14 @@ interface Props {
 export function LiveTab({ state, config, act, serverNow }: Props) {
   const { game } = state;
   const writing = game.phase === "writing";
+  const finals = (state.rounds[game.roundIndex]?.finalists ?? 0) > 0 && game.phase !== "lobby" && game.phase !== "final";
   return (
     // On phones the two columns dissolve into one list, re-ordered by importance.
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start">
       <div className="contents lg:flex lg:flex-col lg:gap-6">
         <ThePass state={state} act={act} className="order-1 lg:order-none" />
         {writing && <TimerCard state={state} config={config} act={act} serverNow={serverNow} className="order-2 lg:order-none" />}
+        {finals && <FinalistsCard state={state} act={act} className="order-2 lg:order-none" />}
         <StatTiles state={state} act={act} className="order-3 lg:order-none" />
         <SpotlightCard state={state} act={act} className="order-7 lg:order-none" />
         <div className="order-9 grid grid-cols-1 gap-6 lg:order-none xl:grid-cols-2">
@@ -70,10 +72,18 @@ function ThePass({ state, act, className }: { state: PublicState; act: Act; clas
   const errors = entries.filter((e) => e.status === "error").length;
   const pending = entries.length - graded - errors;
   const current = stepIndex(game.phase, game.roundIndex, rounds.length);
+  const nextRound = rounds[game.roundIndex + 1];
+  const upNext =
+    (game.phase === "leaderboard" || game.phase === "spotlight") && nextRound?.finalists
+      ? { n: nextRound.finalists, chefs: topChefs(state, game.roundIndex + 1, nextRound.finalists) }
+      : null;
 
   const next: Record<Phase, [string, string]> = {
     lobby: ["▶ Start Round 1", `Shows Round 1's intro on the TV. ${plural(state.players.length, "chef")} in the lobby.`],
-    intro: [`🔥 Open the kitchen · ${round?.minutes ?? "?"} min`, "Phones unlock and the timer starts."],
+    intro: [
+      `🔥 Open the kitchen · ${round?.minutes ?? "?"} min`,
+      round?.finalists ? "Only the finalists' phones unlock. Everyone else watches." : "Phones unlock and the timer starts.",
+    ],
     writing: ["🔒 Lock the kitchen & grade", "Phones lock and every plate goes into the oven."],
     grading: [
       "📊 Reveal the results",
@@ -156,6 +166,7 @@ function ThePass({ state, act, className }: { state: PublicState; act: Act; clas
           <div key={i} className="grid grid-cols-1 gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-center sm:gap-2">
             <div className="font-display text-ink-soft truncate px-1 text-[12.5px] font-extrabold">
               <span className="text-ink">R{i + 1}</span> · {r.name}
+              {r.finalists ? " 🏆" : ""}
             </div>
             <div className="grid grid-cols-4 gap-1">
               {ROUND_STEPS.map((s, j) =>
@@ -190,6 +201,15 @@ function ThePass({ state, act, className }: { state: PublicState; act: Act; clas
         <p className={cx("mt-2 text-center text-[13.5px] font-semibold", game.phase === "grading" && pending > 0 ? "text-carrot-orange" : "text-ink-soft")}>
           {caption}
         </p>
+        {upNext && (
+          <p className="border-line bg-goldenrod/40 mt-3 rounded-[12px] border-2 px-3 py-2 text-[14px] leading-snug">
+            <b className="font-display">🏆 Up next: the top {upNext.n} finalists</b>
+            <span className="text-ink-muted">
+              {" "}
+              — {upNext.chefs.length ? `currently: ${upNext.chefs.map((c) => `${c.player.name} (${c.best})`).join(", ")}` : "nobody has a score yet"}
+            </span>
+          </p>
+        )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <ActButton size="sm" variant="secondary" disabled={game.phase === "lobby"} run={() => act({ action: "back" })}>
@@ -290,6 +310,8 @@ function StatTiles({ state, act, className }: { state: PublicState; act: Act; cl
   const errors = entries.filter((e) => e.status === "error").length;
   const humans = state.players.filter((p) => !p.bot).length;
   const bots = state.players.length - humans;
+  const f = state.game.finalists;
+  const finalists = state.rounds[state.game.roundIndex]?.finalists && f?.round === state.game.roundIndex ? f.ids.length : null;
   const tile = "border-line bg-surface shadow-card flex min-w-0 flex-col rounded-[16px] border-2 px-4 py-3";
   const k = "font-display text-ink-soft text-[11.5px] font-extrabold tracking-[0.08em] uppercase";
   const v = "font-display text-ink text-[34px] leading-none font-extrabold tabular-nums";
@@ -305,7 +327,7 @@ function StatTiles({ state, act, className }: { state: PublicState; act: Act; cl
       <div className={tile}>
         <span className={k}>🍽️ Plated</span>
         <span className={cx(v, "mt-1.5")}>{entries.length}</span>
-        <span className="text-ink-soft mt-1 text-[12.5px]">of {state.players.length} this round</span>
+        <span className="text-ink-soft mt-1 text-[12.5px]">{finalists !== null ? `of ${plural(finalists, "finalist")}` : `of ${state.players.length} this round`}</span>
       </div>
       <div className={tile}>
         <span className={k}>✅ Graded</span>
@@ -511,6 +533,101 @@ function Soundboard({ state, act, className }: { state: PublicState; act: Act; c
         ))}
       </div>
       <p className="text-ink-soft mt-3 text-[12.5px]">Plays on the TV only. Set music and effects volume in the Show tab.</p>
+    </Panel>
+  );
+}
+
+/* ---------- Finalists ---------- */
+
+function FinalistsCard({ state, act, className }: { state: PublicState; act: Act; className?: string }) {
+  const { game } = state;
+  const round = game.roundIndex;
+  const n = state.rounds[round]?.finalists ?? 0;
+  const pm = new Map(state.players.map((p) => [p.id, p]));
+  const scores = earlierScores(state.board, round);
+  const fixed = game.finalists?.round === round ? game.finalists.ids : null;
+  const ids = fixed ?? topChefs(state, round, n).map((c) => c.player.id);
+  const plated = new Set((state.board[round] ?? []).map((e) => e.playerId));
+  const others = rankByBest(state, round).filter((c) => !ids.includes(c.player.id));
+  const set = (p: Player, on: boolean) => act({ action: "setFinalist", playerId: p.id, on }, on ? `🏆 ${p.name} is in the final` : `${p.name} is out of the final`);
+
+  return (
+    <Panel
+      title="🏆 Finalists"
+      className={className}
+      actions={
+        <Chip tone="plain" className="bg-surface-plain">
+          {ids.length} of top {n}
+        </Chip>
+      }
+    >
+      <p className="text-ink-muted mb-3 text-[14px] leading-snug">
+        {fixed ? "Only these chefs write this round. Everyone else watches." : "They’ll be picked when the round starts. From the scores so far:"}
+      </p>
+      {ids.length === 0 ? (
+        <Empty pose="think">{fixed ? "No finalists right now. Add a chef below." : "Nobody has a score from earlier rounds yet. Add chefs below."}</Empty>
+      ) : (
+        <ol className="flex flex-col gap-1.5">
+          {ids.map((id, i) => {
+            const p = pm.get(id);
+            if (!p) return null;
+            const best = scores.get(id)?.best;
+            return (
+              <li key={id} className="border-line/15 bg-surface-plain flex items-center gap-2.5 rounded-[14px] border-2 p-2">
+                <span className="font-display text-ink-soft w-6 shrink-0 text-center text-[15px] font-extrabold tabular-nums">{i + 1}</span>
+                <Avatar player={p} size={36} dim={p.hidden} />
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-ink truncate text-[15px] font-bold">
+                    {p.name} {p.seat ? "📱" : p.bot ? "🤖" : ""}
+                  </div>
+                  <div className="text-ink-soft text-[13px] font-semibold">
+                    {best !== undefined ? `Best so far ${best}` : "No score yet"}
+                    {plated.has(id) && " · ✓ plated"}
+                  </div>
+                </div>
+                {best !== undefined && (
+                  <span className="font-display shrink-0 text-[22px] font-extrabold tabular-nums max-sm:hidden" style={{ color: scoreInk(best) }}>
+                    {best}
+                  </span>
+                )}
+                <ActButton size="sm" variant="secondary" className="shrink-0" run={() => set(p, false)}>
+                  Remove
+                </ActButton>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Select
+          value=""
+          aria-label="Add a chef to the final"
+          disabled={!others.length}
+          onChange={(e) => {
+            const p = pm.get(e.target.value);
+            if (p) void set(p, true);
+          }}
+          className="min-w-0 flex-1 basis-56"
+        >
+          <option value="">➕ Add a chef…</option>
+          {others.map(({ player, best }) => (
+            <option key={player.id} value={player.id}>
+              {player.name} · {best ?? "no score yet"}
+            </option>
+          ))}
+        </Select>
+        <ActButton
+          size="sm"
+          variant="secondary"
+          className="shrink-0"
+          run={async () => {
+            if (!confirm(`Re-pick the top ${n} from the scores? This replaces the list above, including any swaps you made.`)) return;
+            await act({ action: "repickFinalists" }, `🏆 Re-picked the top ${n}`);
+          }}
+        >
+          🔁 Re-pick top {n}
+        </ActButton>
+      </div>
     </Panel>
   );
 }

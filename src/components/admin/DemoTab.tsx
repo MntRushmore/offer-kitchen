@@ -200,7 +200,7 @@ function Timeline({ config }: { config: GameConfig }) {
         ))}
         <li className="border-line/25 bg-surface-alt mb-5 ml-[56px] rounded-[12px] border-2 border-dashed px-3 py-2 text-[13.5px]">
           <span className="font-display font-extrabold">↻ Repeat for every round:</span>{" "}
-          <span className="text-ink-muted">{config.rounds.map((r, i) => `${i + 1}. ${r.name}`).join(" → ")}</span>
+          <span className="text-ink-muted">{config.rounds.map((r, i) => `${i + 1}. ${r.name}${r.finalists ? ` (top ${r.finalists} only)` : ""}`).join(" → ")}</span>
         </li>
         <li className="flex gap-3.5">
           <span className="border-line bg-goldenrod grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 text-[20px] shadow-[0_2px_0_rgba(97,51,1,0.2)]">
