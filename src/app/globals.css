@@ -1,26 +1,281 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ---------------------------------------------------------------------------
+   Offer Kitchen design tokens. The brand is a cartoon kitchen: cream paper and
+   brown ink from Boba Bash, set in a real kitchen — subway-tile walls, a
+   butcher-block counter, steel, order tickets and a chalkboard menu.
+   Every colour in the app should resolve to a token here.
+ --------------------------------------------------------------------------- */
+@theme {
+  /* Palette, named as in the Boba Bash Figma swatches */
+  --color-white-rock: #efe8db;
+  --color-cormaty-tan: #613301;
+  --color-blue-dianne: #274e63;
+  --color-viking: #6fbbe2;
+  --color-carrot-orange: #eb9824;
+  --color-goldenrod: #fddb68;
+  --color-sidecar: #edf386;
+  --color-azalea: #f4c4cf;
+  --color-sunset-orange: #fd6338;
+  --color-leaf: #84bc74;
+
+  /* Kitchen materials */
+  --color-tile: #fbf7ef;
+  --color-grout: #e7dccb;
+  --color-wood: #c98a4b;
+  --color-wood-dark: #8e5420;
+  --color-steel: #dfe4ea;
+  --color-steel-dark: #9aa6b2;
+  --color-chalk: #f6f2e7;
+  --color-slate: #26302b;
+  --color-ticket: #fffefb;
+  --color-tomato: #e5432a;
+
+  /* Semantic roles: prefer these over the raw palette names */
+  --color-bg: var(--color-white-rock);
+  --color-surface: #fffdf9;
+  --color-surface-plain: #ffffff;
+  --color-surface-alt: #f7f2e8;
+  --color-ink: var(--color-cormaty-tan);
+  --color-ink-muted: var(--color-blue-dianne);
+  --color-ink-soft: rgba(97, 51, 1, 0.58);
+  --color-link: #2f7fab;
+  --color-line: var(--color-cormaty-tan);
+
+  --color-titlebar: var(--color-goldenrod);
+  --color-titlebar-alt: var(--color-viking);
+  --color-close: var(--color-sunset-orange);
+
+  --color-bubble: var(--color-viking);
+  --color-bubble-ink: var(--color-blue-dianne);
+  --color-bubble-body: var(--color-sidecar);
+
+  --color-band-sky: #e4f5ff;
+
+  /* Type */
+  --font-display: var(--font-host), "Inter", Helvetica, Arial, sans-serif;
+  --font-body: var(--font-host), "Inter", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-host), "Inter", Helvetica, Arial, sans-serif;
+  /* Signage: the big kitchen-sign words (ROUND 1, Order up!) */
+  --font-sign: var(--font-bagel), var(--font-host), sans-serif;
+  /* Chalk menu board */
+  --font-chalk: var(--font-caveat), "Comic Sans MS", cursive;
+  /* Ticket printer */
+  --font-ticket: var(--font-mono-ticket), ui-monospace, Menlo, monospace;
+
+  --text-display: 3.75rem;
+  --text-title: 2.25rem;
+  --text-heading: 1.875rem;
+  --text-subheading: 1.25rem;
+  --text-body: 1rem;
+  --text-caption: 0.875rem;
+
+  --radius-sm: 4px;
+  --radius-md: 10px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+
+  /* Hard offset shadows, no blur */
+  --shadow-control: 0 3px 0 0 rgba(97, 51, 1, 0.28);
+  --shadow-card: 0 5px 0 0 rgba(97, 51, 1, 0.2);
+  --shadow-raised: 0 8px 0 0 rgba(97, 51, 1, 0.18);
+  --shadow-tv: 0 12px 0 0 rgba(97, 51, 1, 0.22);
+  --shadow-soft: 0 18px 40px -18px rgba(97, 51, 1, 0.45);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-bob: bob 2.2s ease-in-out infinite;
+  --animate-wiggle: wiggle 2.6s ease-in-out infinite;
+  --animate-shake: shake 0.5s ease-in-out infinite;
+  --animate-scale-up: scale-up 0.18s var(--ease-spring);
+  --animate-sway: sway 3.4s ease-in-out infinite;
+  --animate-glow: glow 1.6s ease-in-out infinite;
+  --animate-pop-in: pop-in 0.45s var(--ease-spring) both;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+@keyframes sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-4px) rotate(-2deg); }
+  75% { transform: translateX(4px) rotate(2deg); }
+}
+@keyframes scale-up {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.6) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes steam {
+  0% { transform: translateY(0) scaleX(1); opacity: 0; }
+  20% { opacity: 0.75; }
+  100% { transform: translateY(-120px) scaleX(1.8); opacity: 0; }
+}
+@keyframes glow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes heat {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.04) skewX(1deg); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Host Grotesk swaps the x in "3x" for a multiplication sign. Off wherever
+   the content is something a person typed rather than our prose. */
+.font-literal {
+  font-variant-ligatures: none;
+  font-feature-settings: "calt" 0;
+}
+
+/* ---------- Kitchen surfaces ---------- */
+
+/* Subway tile wall: offset 2:1 tiles with soft grout and a glaze highlight. */
+.bg-tiles {
+  background-color: var(--color-grout);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='80'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fffdf8'/%3E%3Cstop offset='1' stop-color='%23f6efe2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='160' height='80' fill='%23e3d7c4'/%3E%3Crect x='2' y='2' width='156' height='36' rx='5' fill='url(%23g)'/%3E%3Crect x='-78' y='42' width='156' height='36' rx='5' fill='url(%23g)'/%3E%3Crect x='82' y='42' width='156' height='36' rx='5' fill='url(%23g)'/%3E%3Crect x='8' y='6' width='60' height='4' rx='2' fill='%23ffffff' opacity='.9'/%3E%3Crect x='88' y='46' width='40' height='4' rx='2' fill='%23ffffff' opacity='.9'/%3E%3C/svg%3E");
+  background-size: 160px 80px;
+}
+.bg-tiles-sm {
+  background-size: 96px 48px;
+}
+
+/* Butcher-block counter: glued strips of maple and walnut. */
+.bg-butcher {
+  background-color: var(--color-wood);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0, rgba(255, 255, 255, 0) 10px),
+    linear-gradient(0deg, rgba(97, 51, 1, 0.35) 0, rgba(97, 51, 1, 0) 18px),
+    repeating-linear-gradient(90deg,
+      #d39a5c 0 46px, #b97a3e 46px 50px, #dca66a 50px 112px, #a8692f 112px 116px,
+      #cf9152 116px 170px, #bf8045 170px 174px, #e0ad74 174px 236px, #9c5f28 236px 240px);
+}
+
+/* Brushed stainless steel. */
+.bg-steel {
+  background-color: var(--color-steel);
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.35) 0 1px, rgba(0, 0, 0, 0.025) 1px 3px),
+    linear-gradient(180deg, #f3f6f9 0%, #d6dce3 55%, #c4ccd5 100%);
+}
+
+/* The checker floor band. */
+.bg-checker {
+  background-color: #fff;
+  background-image: url("/checker-tile.webp");
+  background-size: 96px;
+  background-repeat: repeat;
+}
+
+/* Chalkboard: generated slate texture inside a wooden frame (frame drawn by the component). */
+.bg-chalkboard {
+  background-color: var(--color-slate);
+  background-image: url("/art/chalkboard.webp");
+  background-size: cover;
+  background-position: center;
+}
+.chalk {
+  color: var(--color-chalk);
+  text-shadow: 0 0 1px rgba(246, 242, 231, 0.55), 0 0 6px rgba(246, 242, 231, 0.12);
+}
+
+/* Paper grain: two offset dot grids at very low alpha read as tooth. */
+.bg-paper {
+  background-image:
+    radial-gradient(rgba(97, 51, 1, 0.045) 1px, transparent 1px),
+    radial-gradient(rgba(97, 51, 1, 0.03) 1px, transparent 1px);
+  background-size: 18px 18px, 18px 18px;
+  background-position: 0 0, 9px 9px;
+}
+
+/* Index recipe card: ruled lines under a red header rule. */
+.bg-recipe {
+  background-color: #fffdf6;
+  background-image:
+    linear-gradient(180deg, transparent 0, transparent calc(var(--rule-top, 64px) - 3px), rgba(229, 67, 42, 0.55) calc(var(--rule-top, 64px) - 3px), rgba(229, 67, 42, 0.55) var(--rule-top, 64px), transparent var(--rule-top, 64px)),
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(var(--rule, 34px) - 1px), rgba(111, 187, 226, 0.35) calc(var(--rule, 34px) - 1px), rgba(111, 187, 226, 0.35) var(--rule, 34px));
+}
+
+/* Order ticket: a zig-zag torn bottom edge. Size via --zig. */
+.ticket-edge {
+  --zig: 14px;
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(var(--zig) * 2) 100%;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(var(--zig) * 2) 100%;
+}
+
+/* Torn paper edge between bands. The asset is white sheet, rip, then clear. */
+.paper-tear {
+  background-image: url("/paper-tear.webp");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* Wordmark lettering: goldenrod fill, brown outline, hard drop. */
+.text-sticker {
+  color: var(--color-goldenrod);
+  -webkit-text-stroke: 0.09em var(--color-cormaty-tan);
+  paint-order: stroke fill;
+  text-shadow: 0 0.07em 0 var(--color-cormaty-tan);
+}
+.text-sticker-cream {
+  color: var(--color-surface);
+  -webkit-text-stroke: 0.09em var(--color-cormaty-tan);
+  paint-order: stroke fill;
+  text-shadow: 0 0.07em 0 var(--color-cormaty-tan);
+}
+.text-sticker-tomato {
+  color: var(--color-sunset-orange);
+  -webkit-text-stroke: 0.09em var(--color-cormaty-tan);
+  paint-order: stroke fill;
+  text-shadow: 0 0.07em 0 var(--color-cormaty-tan);
+}
+
+/* Rubber stamp: inked double border, a little uneven. */
+.stamp {
+  border: 0.12em solid currentColor;
+  outline: 0.05em solid currentColor;
+  outline-offset: 0.08em;
+  text-transform: uppercase;
+  -webkit-mask-image: radial-gradient(circle at 20% 30%, #000 60%, rgba(0, 0, 0, 0.82) 61%, #000 75%);
+  mask-image: radial-gradient(circle at 20% 30%, #000 60%, rgba(0, 0, 0, 0.82) 61%, #000 75%);
+}
+
+.steam {
+  animation: steam 2.6s ease-out infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
