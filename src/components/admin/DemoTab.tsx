@@ -25,6 +25,12 @@ export function DemoTab({ state, config, edit, act, dirty, saveDraft }: Props) {
   const ai = state.admin!.aiConfigured;
   const [started, setStarted] = useState(false);
   const running = game.autopilot;
+  const demoLeftovers = running || state.players.some((p) => p.bot);
+
+  const end = async () => {
+    if (!confirm("End the demo? This clears the bots, demo offers and grades and opens a fresh lobby for real guests.")) return;
+    if (await act({ action: "reset" }, "Demo ended. Fresh lobby, ready for real guests.")) setStarted(false);
+  };
 
   const start = async () => {
     const msg = "This clears all players, offers and grades and runs the whole show automatically.";
@@ -50,6 +56,11 @@ export function DemoTab({ state, config, edit, act, dirty, saveDraft }: Props) {
               <ActButton size="xl" run={start} busyLabel="Starting…" className="w-full sm:w-auto">
                 ▶ {running ? "Restart the full demo" : "Start the full demo"}
               </ActButton>
+              {demoLeftovers && (
+                <ActButton size="xl" variant="danger" run={end} busyLabel="Ending…" className="w-full sm:w-auto">
+                  ■ End the demo
+                </ActButton>
+              )}
               <a
                 href="/demo"
                 target="_blank"

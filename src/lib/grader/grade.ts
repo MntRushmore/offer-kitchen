@@ -28,8 +28,13 @@ const GradeSchema = z.object({
 });
 type RawGrade = z.infer<typeof GradeSchema>;
 
+/**
+ * On Vercel the gateway authenticates with a per-request OIDC token (a header,
+ * not an env var), so being deployed counts as connected. Locally we need the
+ * token from `vercel env pull` or an explicit gateway key.
+ */
 export function aiConfigured(): boolean {
-  return Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN);
+  return Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL);
 }
 
 /** Post-grader guards from the Offer Karaoke spec. They only ever lower scores. */

@@ -11,6 +11,7 @@ import {
   Avatar,
   Button,
   CheckMark,
+  ChefHat,
   Chip,
   CountUp,
   cx,
@@ -32,7 +33,8 @@ const REACT_PHASES = ["lobby", "leaderboard", "spotlight", "final"];
 /** Demo-stage phones that join and type on their own. Any other ?seat= is just a separate player slot. */
 const SCRIPTED_SEATS = ["a", "b"];
 
-export default function PlayApp() {
+/** `onStale`: called when the stored player no longer exists on the server. */
+export default function PlayApp({ onStale }: { onStale?: () => void } = {}) {
   const seat = useQueryParam("seat");
   const scripted = Boolean(seat && SCRIPTED_SEATS.includes(seat));
   const pidKey = seat ? `ok:pid:${seat}` : "ok:pid";
@@ -42,6 +44,9 @@ export default function PlayApp() {
 
   // Our player vanished (kicked, or the host reset the game): back to the join screen.
   const removed = Boolean(pid && state && !state.me);
+  useEffect(() => {
+    if (removed) onStale?.();
+  }, [removed, onStale]);
 
   const onJoined = useCallback(
     (id: string) => {
@@ -50,6 +55,12 @@ export default function PlayApp() {
     },
     [setPid, refresh],
   );
+
+  const onLeave = useCallback(async () => {
+    if (!pid || !confirm("Leave the kitchen? Your offers come off the leaderboard. You can rejoin with a new name.")) return;
+    await fetch("/api/leave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ playerId: pid }) }).catch(() => {});
+    setPid(null);
+  }, [pid, setPid]);
 
   // Demo-stage phones join themselves (and rejoin after the demo restarts).
   const joining = useRef(false);
@@ -89,27 +100,50 @@ export default function PlayApp() {
 
   return (
     <ShowProvider value={state?.show ?? DEFAULT_SHOW}>
-      <Shell state={state ?? undefined} serverNow={serverNow}>
+      <Shell state={state ?? undefined} serverNow={serverNow} onLeave={scripted ? undefined : onLeave}>
         {body}
       </Shell>
     </ShowProvider>
   );
 }
 
-function Shell({ state, serverNow, children }: { state?: PublicState; serverNow: () => number; children: React.ReactNode }) {
+function Shell({
+  state,
+  serverNow,
+  onLeave,
+  children,
+}: {
+  state?: PublicState;
+  serverNow: () => number;
+  onLeave?: () => void;
+  children: React.ReactNode;
+}) {
   const me = state?.me?.player;
   const canReact = Boolean(me && state?.show.reactions && REACT_PHASES.includes(state.game.phase));
   return (
     <div className="bg-tiles bg-tiles-sm flex min-h-dvh flex-col">
       <header className="border-line bg-surface/95 sticky top-0 z-30 flex items-center gap-3 border-b-[3px] px-4 py-2.5 backdrop-blur">
         <div className="min-w-0 flex-1">
-          <Logo size="sm" />
+          {/* With a name pill and Leave beside it, narrow phones only fit the hat. */}
+          <div className={cx(me && "hidden min-[440px]:block")}>
+            <Logo size="sm" />
+          </div>
+          {me && <ChefHat size={30} className="animate-wiggle min-[440px]:hidden" />}
         </div>
         {me && (
-          <div className="border-line bg-goldenrod flex max-w-[52%] items-center gap-1.5 rounded-full border-2 py-0.5 pr-3 pl-0.5">
+          <div className="border-line bg-goldenrod flex max-w-[40%] items-center gap-1.5 rounded-full border-2 py-0.5 pr-3 pl-0.5">
             <Avatar player={me} size={30} />
             <span className="font-display truncate text-[14px] font-extrabold">{me.name}</span>
           </div>
+        )}
+        {me && onLeave && (
+          <button
+            type="button"
+            onClick={onLeave}
+            className="border-line bg-surface text-ink shadow-control font-display shrink-0 rounded-full border-2 px-3 py-1 text-[13px] font-extrabold active:translate-y-px"
+          >
+            Leave
+          </button>
         )}
       </header>
       {state && <PhoneAnnouncement state={state} serverNow={serverNow} />}
@@ -366,7 +400,9 @@ function LobbyWait({ state }: { state: PublicState }) {
             <Avatar key={p.id} player={p} size={30} />
           ))}
         </div>
-        <span className="font-display font-extrabold">{state.players.length} chefs in the kitchen</span>
+        <span className="font-display font-extrabold">
+          {state.players.length} {state.players.length === 1 ? "chef" : "chefs"} in the kitchen
+        </span>
       </div>
       <div className="mt-2 flex w-full items-end gap-2">
         <Mascot pose="wave" className="h-32 shrink-0" />

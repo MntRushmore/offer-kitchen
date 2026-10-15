@@ -1,5 +1,5 @@
-import PlayApp from "@/components/play/PlayApp";
+import HomeSwitch from "@/components/HomeSwitch";
 
 export default function Home() {
-  return <PlayApp />;
+  return <HomeSwitch />;
 }

@@ -136,6 +136,16 @@ function ThePass({ state, act, className }: { state: PublicState; act: Act; clas
           <ActButton size="sm" variant="secondary" run={() => act({ action: "autopilot", on: false }, "You have the wheel")}>
             Take over
           </ActButton>
+          <ActButton
+            size="sm"
+            variant="danger"
+            run={async () => {
+              if (!confirm("End the demo? This clears the bots, demo offers and grades and opens a fresh lobby for real guests.")) return;
+              await act({ action: "reset" }, "Demo ended. Fresh lobby, ready for real guests.");
+            }}
+          >
+            End demo
+          </ActButton>
         </div>
       )}
 

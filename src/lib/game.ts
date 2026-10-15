@@ -266,6 +266,13 @@ export async function react(playerId: string, emoji: string) {
   invalidate();
 }
 
+/** A player walking out on their own: same as the host removing them. */
+export async function leaveGame(playerId: string) {
+  const snap = await readSnapshot(true);
+  if (!snap.players[playerId]) return;
+  await adminAction({ action: "kickPlayer", playerId });
+}
+
 /* ---------- Submitting & grading ---------- */
 
 export async function submitOffer(input: {

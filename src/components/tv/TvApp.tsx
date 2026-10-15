@@ -23,8 +23,17 @@ import { useGameState } from "@/lib/client/useGame";
  * - `full`: the /tv page. One click turns on sound and goes fullscreen.
  * - `embedded`: inside the /demo stage; the parent's click unlocks audio.
  * - `preview`: the host's silent thumbnail in the admin page.
+ * `playHref`: on the bare URL, a way out for a guest who wants to play on this laptop.
  */
-export function TvApp({ mode = "full", started: startedProp }: { mode?: "full" | "embedded" | "preview"; started?: boolean }) {
+export function TvApp({
+  mode = "full",
+  started: startedProp,
+  playHref,
+}: {
+  mode?: "full" | "embedded" | "preview";
+  started?: boolean;
+  playHref?: string;
+}) {
   const { state, offline, serverNow } = useGameState({ interval: mode === "preview" ? 1500 : 1000 });
   const [clicked, setClicked] = useState(false);
   const origin = useOrigin();
@@ -146,6 +155,11 @@ export function TvApp({ mode = "full", started: startedProp }: { mode?: "full" |
             </div>
           </div>
         </button>
+      )}
+      {mode === "full" && !clicked && playHref && (
+        <a href={playHref} className="text-link absolute bottom-12 left-1/2 z-50 -translate-x-1/2 text-[28px] font-bold underline underline-offset-4">
+          Here to play, not host? Join on this device →
+        </a>
       )}
     </Stage>
   );
