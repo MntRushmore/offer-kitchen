@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { TOPIC_ART, topicImage } from "@/lib/constants";
+import { TOPIC_ART, topicBrief, topicImage } from "@/lib/constants";
 import type { GameConfig, PublicState, TopicCard } from "@/lib/types";
-import { Art, Badge, Button, cx, Field, Input, Panel, Textarea, TopicArt, TopicCardView } from "../ui";
+import { Art, Badge, Button, cx, Field, Input, OfferBrief, Panel, Textarea, TopicArt } from "../ui";
 import { Count, Eyebrow, TabHeader } from "./controls";
 import { adminFetch, type Edit, type Flash } from "./shared";
 
@@ -20,6 +20,7 @@ const blank = (): TopicCard => ({
   title: "New topic",
   emoji: "🍽️",
   image: null,
+  brief: [],
   buyer: "",
   pain: "",
   alternatives: "",
@@ -194,6 +195,19 @@ function TopicEditor({
 
           <ImagePicker topic={t} update={update} />
 
+          <Field
+            label="📝 Short version"
+            hint="What players see while they write: 2–3 short bullets, one per line. Leave it empty to use the first line of who buys, what they use today and your setup."
+          >
+            <Textarea
+              rows={3}
+              value={(t.brief ?? []).join("\n")}
+              onChange={(e) => update({ brief: e.target.value.split("\n").slice(0, 4) })}
+              placeholder={topicBrief({ ...t, brief: [] }).join("\n")}
+              className="[field-sizing:content] min-h-24"
+            />
+          </Field>
+
           {FIELDS.map((f) => (
             <Field key={f.key} label={f.label} hint={f.hint}>
               <Textarea
@@ -225,9 +239,9 @@ function TopicEditor({
         <div className="flex flex-col gap-2">
           <Eyebrow>Preview</Eyebrow>
           <div className="bg-tiles bg-tiles-sm border-line rounded-[16px] border-2 px-3 pt-5 pb-2">
-            <TopicCardView topic={t} size="sm" />
+            <OfferBrief topic={t} />
           </div>
-          <p className="text-ink-soft text-[12px]">This is the ticket chefs see on their phones.</p>
+          <p className="text-ink-soft text-[13px]">This is what chefs see on their phones and the TV. The full card is one tap away on phones, and the grader always gets all of it.</p>
         </div>
       </div>
     </Panel>

@@ -151,6 +151,11 @@ export const DEFAULT_TOPICS: TopicCard[] = [
   {
     id: "birthday",
     image: "birthday",
+    brief: [
+      "Busy parents of 5–9-year-olds hosting a party at home",
+      "Venues charge $350–$650; entertainers $200–$400 an hour",
+      "You host at their home on weekends: about 6 hours and $75 in costs per party",
+    ],
     title: "Birthday Party Rescue",
     emoji: "🎉",
     buyer:
@@ -168,6 +173,11 @@ export const DEFAULT_TOPICS: TopicCard[] = [
   {
     id: "garage",
     image: "garage",
+    brief: [
+      "Homeowners who can't park in their own garage",
+      "Organizers charge $80–$150 an hour; junk haulers $300–$800 a load",
+      "One garage per weekend: about 14 hours, plus $250–$450 in shelving and $210 in dump runs",
+    ],
     title: "Garage Rescue",
     emoji: "🧰",
     buyer:
@@ -185,6 +195,11 @@ export const DEFAULT_TOPICS: TopicCard[] = [
   {
     id: "dinner",
     image: "dinner",
+    brief: [
+      "Busy two-income families with young kids",
+      "Takeout runs $60–$90 a night; meal kits $10–$13 a serving",
+      "You cook 5 dinners in their kitchen each week: about 5 hours, plus $110–$150 in groceries",
+    ],
     title: "Weeknight Dinner Prep",
     emoji: "🍲",
     buyer:
@@ -202,6 +217,11 @@ export const DEFAULT_TOPICS: TopicCard[] = [
   {
     id: "lights",
     image: "lights",
+    brief: [
+      "Homeowners who hate ladders or don't have the time",
+      "Pro installers charge $500–$2,500 a season",
+      "Single-story homes only: about 6 hours a house, and the lights ($180–$300) last 3 seasons",
+    ],
     title: "Holiday Lights Install",
     emoji: "🎄",
     buyer:
@@ -219,6 +239,11 @@ export const DEFAULT_TOPICS: TopicCard[] = [
   {
     id: "tech",
     image: "tech",
+    brief: [
+      "Adult kids whose aging parents keep calling for tech help",
+      "Big-box tech visits cost $100–$200 and fix one device",
+      "90-minute home visits on evenings and weekends: about 2 hours and $10 of gas each",
+    ],
     title: "Tech Help for Grandparents",
     emoji: "📱",
     buyer:
@@ -312,7 +337,31 @@ export function withDefaults(saved: Partial<GameConfig> | null): GameConfig {
   const show = { ...DEFAULT_SHOW, ...(s.show ?? {}) };
   show.tiers = { ...DEFAULT_SHOW.tiers, ...(s.show?.tiers ?? {}) };
   show.demo = { ...DEFAULT_SHOW.demo, ...(s.show?.demo ?? {}) };
-  return { ...DEFAULT_CONFIG, ...s, show };
+  // Cards saved before briefs existed: a built-in card nobody edited gets its brief back.
+  const topics = s.topics?.map((t) => {
+    if (t.brief?.length) return t;
+    const d = DEFAULT_TOPICS.find((x) => x.id === t.id);
+    const same = d && BRIEF_SOURCE.every((k) => d[k] === t[k]);
+    return same ? { ...t, brief: d.brief } : t;
+  });
+  return { ...DEFAULT_CONFIG, ...s, ...(topics && { topics }), show };
+}
+
+const BRIEF_SOURCE = ["buyer", "alternatives", "scope", "economics"] as const;
+
+/**
+ * The few bullets players write from. A card without a hand-written brief
+ * gets the first clause of who buys, what they use today and your setup.
+ */
+export function topicBrief(topic: TopicCard): string[] {
+  const own = (topic.brief ?? []).map((b) => b.trim()).filter(Boolean);
+  if (own.length) return own;
+  const first = (s: string) =>
+    s
+      .replace(/\s*\([^)]*\)/g, "")
+      .split(/;|\.\s|\.$/)[0]
+      .trim();
+  return [topic.buyer, topic.alternatives, topic.scope].map(first).filter(Boolean);
 }
 
 export const OVEN_LINES = [

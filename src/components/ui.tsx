@@ -10,6 +10,7 @@ import {
   isArtAvatar,
   MASCOT,
   scoreToLetter,
+  topicBrief,
   topicImage,
 } from "@/lib/constants";
 import type { CriterionGrade, Grade, Letter, Player, PublicShow, TopicCard } from "@/lib/types";
@@ -154,7 +155,8 @@ export function Ticket({
   bodyClassName,
   clip = true,
 }: {
-  label: React.ReactNode;
+  /** Omit for a ticket with no printed header strip. */
+  label?: React.ReactNode;
   number?: React.ReactNode;
   tv?: boolean;
   children: React.ReactNode;
@@ -178,15 +180,17 @@ export function Ticket({
           className={cx("bg-ticket ticket-edge flex h-full flex-col", tv ? "px-10 pt-9 pb-12" : "px-5 pt-5 pb-7", bodyClassName)}
           style={{ ["--zig" as string]: tv ? "18px" : "10px" }}
         >
-          <div
-            className={cx(
-              "font-ticket text-ink-soft flex items-center justify-between border-b-2 border-dashed border-current/40 font-bold tracking-[0.12em] uppercase",
-              tv ? "mb-6 pb-4 text-[22px]" : "mb-3 pb-2 text-[11px]",
-            )}
-          >
-            <span>{label}</span>
-            {number && <span>{number}</span>}
-          </div>
+          {label && (
+            <div
+              className={cx(
+                "font-display text-ink-soft flex items-center justify-between border-b-2 border-dashed border-current/40 font-bold",
+                tv ? "mb-6 pb-4 text-[30px]" : "mb-3 pb-2 text-[15px]",
+              )}
+            >
+              <span>{label}</span>
+              {number && <span>{number}</span>}
+            </div>
+          )}
           {children}
         </div>
       </div>
@@ -392,7 +396,7 @@ export function Chip({ tone = "brand", tv, children, className }: { tone?: Tone;
     <div
       className={cx(
         "border-line font-display text-ink inline-flex items-center font-extrabold whitespace-nowrap",
-        tv ? "gap-3 rounded-[18px] border-4 px-6 py-2.5 text-[32px] shadow-card" : "gap-1.5 rounded-[10px] border-2 px-2.5 py-1 text-[13px]",
+        tv ? "gap-3 rounded-[18px] border-4 px-6 py-2.5 text-[32px] shadow-card" : "gap-1.5 rounded-[10px] border-2 px-2.5 py-1 text-[15px]",
         TITLEBAR[tone],
         className,
       )}
@@ -407,7 +411,7 @@ export function Chip({ tone = "brand", tv, children, className }: { tone?: Tone;
 // font-literal: what someone types is data, not prose.
 const CONTROL =
   "w-full rounded-[12px] border-2 border-line bg-surface-plain px-3 py-2 text-ink shadow-[inset_0_2px_0_rgba(97,51,1,0.08)] " +
-  "font-literal placeholder:text-ink-soft placeholder:italic transition-shadow " +
+  "font-literal placeholder:text-ink-soft transition-shadow " +
   "focus:outline-none focus:ring-4 focus:ring-viking/50 " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -432,14 +436,17 @@ export function Field({ label, hint, error, children }: { label?: React.ReactNod
   );
 }
 
+/** The default size, unless the caller sets its own (two font-size classes don't override by order). */
+const bodySize = (className?: string) => (className && /(^|\s)text-\[\d/.test(className) ? null : "text-body");
+
 export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(CONTROL, "font-body text-body", className)} {...props} />;
+  return <input className={cx(CONTROL, "font-body", bodySize(className), className)} {...props} />;
 }
 
 export function Textarea({ className, mono, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { mono?: boolean }) {
   return (
     <textarea
-      className={cx(CONTROL, mono ? "font-mono text-xs leading-relaxed" : "font-body text-body resize-none leading-relaxed", className)}
+      className={cx(CONTROL, mono ? "font-mono text-xs leading-relaxed" : cx("font-body resize-none leading-relaxed", bodySize(className)), className)}
       {...props}
     />
   );
@@ -653,7 +660,7 @@ export function OfferFacts({
       )}
     >
       <div className={cx("font-sign leading-none tracking-[0.01em]", tv ? "text-[60px]" : "text-[36px]")}>Offer Facts</div>
-      <div className={cx("flex justify-between border-b-[#1d1208] font-semibold", tv ? "mt-2 border-b-[3px] pb-2 text-[22px]" : "mt-1 border-b-2 pb-1 text-[13px]")}>
+      <div className={cx("flex justify-between border-b-[#1d1208] font-semibold", tv ? "mt-2 border-b-[3px] pb-2 text-[22px]" : "mt-1 border-b-2 pb-1 text-[15px]")}>
         <span>Serving size 1 offer</span>
         <span>
           {tier.name} {tier.emoji}
@@ -665,7 +672,7 @@ export function OfferFacts({
           <CountUp to={grade.overall} duration={1} />
         </span>
       </div>
-      <div className={cx("border-b-[#1d1208] text-right font-bold", tv ? "border-b-2 py-1 text-[18px]" : "border-b py-0.5 text-[11px]")}>
+      <div className={cx("border-b-[#1d1208] text-right font-bold", tv ? "border-b-2 py-1 text-[18px]" : "border-b py-0.5 text-[13px]")}>
         % Grand Slam*
       </div>
       {grade.criteria.map((c, i) => {
@@ -678,9 +685,9 @@ export function OfferFacts({
             transition={{ delay: delay + i * 0.12 }}
             className={cx("border-b-[#1d1208]/70", tv ? "border-b-2 py-2" : "border-b py-1.5")}
           >
-            <div className={cx("flex items-center", tv ? "gap-3 text-[24px]" : "gap-2 text-[14px]")}>
+            <div className={cx("flex items-center", tv ? "gap-3 text-[24px]" : "gap-2 text-[16px]")}>
               <span>{meta.emoji}</span>
-              <span className="flex-1 truncate font-bold">{meta.label}</span>
+              <span className={cx("flex-1 font-bold", tv ? "truncate" : "leading-tight")}>{meta.label}</span>
               <div className={cx("relative overflow-hidden rounded-full bg-[#1d1208]/10", tv ? "h-4 w-40" : "h-2.5 w-16")}>
                 <motion.div
                   className="absolute inset-y-0 left-0 rounded-full"
@@ -695,12 +702,12 @@ export function OfferFacts({
               </span>
             </div>
             {feedback && c.feedback && (
-              <p className={cx("leading-snug text-[#1d1208]/75", tv ? "mt-1 text-[19px]" : "mt-0.5 text-[13px]")}>{c.feedback}</p>
+              <p className={cx("leading-snug text-[#1d1208]/75", tv ? "mt-1 text-[19px]" : "mt-1 text-[15px]")}>{c.feedback}</p>
             )}
           </motion.div>
         );
       })}
-      <p className={cx("leading-snug text-[#1d1208]/70", tv ? "mt-3 text-[16px]" : "mt-2 text-[10px]")}>
+      <p className={cx("leading-snug text-[#1d1208]/70", tv ? "mt-3 text-[16px]" : "mt-2 text-[13px]")}>
         * 90%+ in all six, and a buyer would feel silly saying no. Judged strictly by {grade.simulated ? "the rehearsal grader" : "Claude"}.
       </p>
     </div>
@@ -723,50 +730,53 @@ export function TopicArt({ topic, className }: { topic: TopicCard; className?: s
   return <div className={cx("grid place-items-center leading-none", className)}>{topic.emoji}</div>;
 }
 
-export function TopicCardView({
+/** The card's full detail rows: who buys, what hurts, what they use today, setup, costs. */
+export function TopicFacts({
   topic,
-  size = "md",
   rows = TOPIC_ROWS.map((r) => r.key),
-  label = "Today's order",
-  number,
-  className,
+  tv,
   dense,
+  className,
 }: {
   topic: TopicCard;
-  size?: "sm" | "md" | "tv";
   rows?: (keyof TopicCard)[];
-  label?: React.ReactNode;
-  number?: React.ReactNode;
-  className?: string;
-  /** TV only: tighter type so all five rows fit beside the timer. */
+  tv?: boolean;
   dense?: boolean;
+  className?: string;
 }) {
-  const tv = size === "tv";
-  const sm = size === "sm";
   return (
-    <Ticket tv={tv} label={label} number={number} className={className} bodyClassName={tv && dense ? "px-9 pt-7 pb-10" : undefined}>
-      <div className={cx("flex items-center", tv ? (dense ? "mb-2 gap-5" : "mb-4 gap-6") : "mb-2 gap-3")}>
-        <TopicArt
-          topic={topic}
-          className={cx("shrink-0", tv ? (dense ? "h-[96px] w-[96px] text-[72px]" : "h-[128px] w-[128px] text-[96px]") : sm ? "h-16 w-16 text-5xl" : "h-20 w-20 text-6xl")}
-        />
-        <div className={cx("font-sign text-ink leading-[0.95] tracking-[0.01em]", tv ? (dense ? "text-[48px]" : "text-[58px]") : sm ? "text-[26px]" : "text-[32px]")}>
-          {topic.title}
-        </div>
-      </div>
-      <div className="flex flex-col">
-        {TOPIC_ROWS.filter((r) => rows.includes(r.key)).map((r) => (
-          <div key={r.key} className={cx("border-line/15 flex border-t first:border-t-0", tv ? (dense ? "gap-4 py-2" : "gap-5 py-3") : "gap-3 py-2.5")}>
-            <div className={cx("shrink-0", tv ? (dense ? "text-[28px] leading-none" : "text-[34px] leading-none") : "text-xl")}>{r.emoji}</div>
-            <div className="min-w-0">
-              <div className={cx("font-ticket text-ink-soft font-bold tracking-[0.1em] uppercase", tv ? (dense ? "text-[15px]" : "text-[17px]") : "text-[10.5px]")}>
-                {r.label}
-              </div>
-              <div className={cx("text-ink leading-snug", tv ? (dense ? "text-[21px]" : "mt-0.5 text-[24px]") : "text-[14px]")}>{String(topic[r.key])}</div>
-            </div>
+    <div className={cx("flex flex-col", className)}>
+      {TOPIC_ROWS.filter((r) => rows.includes(r.key)).map((r) => (
+        <div key={r.key} className={cx("border-line/15 flex border-t first:border-t-0", tv ? (dense ? "gap-4 py-2" : "gap-5 py-3") : "gap-3 py-2.5")}>
+          <div className={cx("shrink-0", tv ? (dense ? "text-[28px] leading-none" : "text-[34px] leading-none") : "text-xl")}>{r.emoji}</div>
+          <div className="min-w-0">
+            <div className={cx("font-display text-ink-soft font-bold", tv ? (dense ? "text-[18px]" : "text-[20px]") : "text-[14px]")}>{r.label}</div>
+            <div className={cx("text-ink leading-snug", tv ? (dense ? "text-[21px]" : "mt-0.5 text-[24px]") : "text-[16px]")}>{String(topic[r.key])}</div>
           </div>
-        ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The topic as players write from it: "Create an offer for…" and a few bullets. */
+export function OfferBrief({ topic, tv, children, className }: { topic: TopicCard; tv?: boolean; children?: React.ReactNode; className?: string }) {
+  return (
+    <Ticket tv={tv} className={className} bodyClassName={tv ? "px-12 pt-12 pb-14" : "px-5 pt-6 pb-8"}>
+      <div className={cx("font-display text-ink-muted font-bold", tv ? "text-[38px]" : "text-[17px]")}>Create an offer for</div>
+      <div className={cx("flex items-center", tv ? "mt-3 gap-6" : "mt-1.5 gap-3")}>
+        <TopicArt topic={topic} className={cx("shrink-0", tv ? "h-[150px] w-[150px] text-[110px]" : "h-16 w-16 text-5xl")} />
+        <div className={cx("font-sign text-ink leading-[0.95] tracking-[0.01em]", tv ? "text-[76px]" : "text-[30px]")}>{topic.title}</div>
       </div>
+      <ul className={cx("flex flex-col", tv ? "mt-10 gap-7" : "mt-4 gap-3")}>
+        {topicBrief(topic).map((b, i) => (
+          <li key={i} className={cx("text-ink flex leading-snug font-semibold", tv ? "gap-5 text-[40px]" : "gap-3 text-[17px]")}>
+            <span aria-hidden className={cx("bg-sunset-orange border-line shrink-0 rounded-full", tv ? "mt-[0.42em] h-5 w-5 border-[3px]" : "mt-[0.4em] h-2.5 w-2.5 border-2")} />
+            <span className="min-w-0">{b}</span>
+          </li>
+        ))}
+      </ul>
+      {children}
     </Ticket>
   );
 }

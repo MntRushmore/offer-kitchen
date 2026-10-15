@@ -38,7 +38,8 @@
   --color-surface-alt: #f7f2e8;
   --color-ink: var(--color-cormaty-tan);
   --color-ink-muted: var(--color-blue-dianne);
-  --color-ink-soft: rgba(97, 51, 1, 0.58);
+  /* Solid, not translucent: secondary text still has to pass contrast on cream. */
+  --color-ink-soft: #7a5a3a;
   --color-link: #2f7fab;
   --color-line: var(--color-cormaty-tan);
 
@@ -68,7 +69,7 @@
   --text-heading: 1.875rem;
   --text-subheading: 1.25rem;
   --text-body: 1rem;
-  --text-caption: 0.875rem;
+  --text-caption: 0.9375rem;
 
   --radius-sm: 4px;
   --radius-md: 10px;

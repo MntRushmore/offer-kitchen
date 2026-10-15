@@ -14,6 +14,7 @@ const Draft = z.object({
   alternatives: z.string(),
   scope: z.string(),
   economics: z.string(),
+  brief: z.array(z.string()),
 });
 
 const SYSTEM = `You write topic cards for Offer Kitchen, a live workshop where parents practice writing a Grand Slam offer for a fictional solo side hustle they would run themselves on evenings and weekends.
@@ -25,6 +26,7 @@ A topic card gives participants the facts they need to write a concrete offer, a
 - alternatives: 3–4 things buyers use today, each with a realistic $ range and a weakness.
 - scope: exactly what one person can deliver, when, capacity limits, equipment they have. Solo only, no employees.
 - economics: per-job costs, one-time costs, and hours per job broken down.
+- brief: exactly 3 bullets of at most 14 words each, the at-a-glance version players write from: (1) who buys, (2) what they pay today, with a $ range, (3) what you can deliver, with your hours and costs per job. Use only numbers from the fields above.
 Never include a suggested price for the participant's own offer.`;
 
 export async function writeTopic(idea: string, model: string): Promise<TopicCard> {
@@ -39,5 +41,5 @@ export async function writeTopic(idea: string, model: string): Promise<TopicCard
     timeout: 90_000,
   });
   const slug = output.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "topic";
-  return { ...output, id: `${slug}-${Date.now().toString(36).slice(-4)}`, image: "generic", absurdPrice: 20000 };
+  return { ...output, brief: output.brief.slice(0, 4), id: `${slug}-${Date.now().toString(36).slice(-4)}`, image: "generic", absurdPrice: 20000 };
 }

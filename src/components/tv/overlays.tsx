@@ -88,7 +88,7 @@ export function Announcement({ announcement, serverNow, sound }: { announcement:
         >
           <Mascot pose="point" className="relative z-10 -mr-10 h-[230px] -scale-x-100" />
           <div className="bg-goldenrod border-line shadow-tv max-w-[1180px] rounded-[26px] border-4 px-12 py-7">
-            <div className="font-ticket text-ink/70 text-[22px] font-bold tracking-[0.18em] uppercase">From the head chef</div>
+            <div className="font-display text-ink/75 text-[30px] font-bold">From the head chef</div>
             <div className="font-sign text-ink mt-2 text-[60px] leading-[1.05]">{live.text}</div>
           </div>
         </motion.div>

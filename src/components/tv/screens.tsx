@@ -23,7 +23,7 @@ import {
   Stamp,
   Ticket,
   TicketRail,
-  TopicCardView,
+  OfferBrief,
   useShow,
   useTier,
 } from "../ui";
@@ -166,7 +166,7 @@ export function LobbyScreen({ state, joinUrl }: Props) {
         <div className="border-line bg-surface/95 shadow-tv flex min-w-0 flex-1 flex-col rounded-[30px] border-4 px-10 pt-8 pb-8">
           <div className="flex items-end justify-between">
             <div>
-              <div className="font-ticket text-ink-soft text-[22px] font-bold tracking-[0.16em] uppercase">Tonight&apos;s brigade</div>
+              <div className="font-display text-ink-soft text-[30px] font-bold">Tonight&apos;s brigade</div>
               <div className="font-sign text-ink text-[64px] leading-none">Chefs in the kitchen</div>
             </div>
             <div className="font-sign text-sticker -mb-1 text-[130px] leading-none tabular-nums">
@@ -277,10 +277,10 @@ export function IntroScreen({ state, joinUrl }: Props) {
               className="pt-3"
               style={{ transformOrigin: "50% 0" }}
               initial={{ y: -900, rotate: 8 }}
-              animate={{ y: 0, rotate: [8, -3, 1.5, 0.5] }}
+              animate={{ y: 0, rotate: [8, -3, 1.5, 0] }}
               transition={{ delay: 0.5, y: { type: "spring", stiffness: 70, damping: 12 }, rotate: { duration: 1.8, ease: "easeOut" } }}
             >
-              <TopicCardView topic={round.topic} size="tv" rows={["buyer", "pain", "alternatives"]} number={`R${state.game.roundIndex + 1}`} />
+              <OfferBrief topic={round.topic} tv />
             </motion.div>
           </div>
         )}
@@ -370,7 +370,7 @@ function KitchenTimer({ endsAt, pausedLeft, serverNow, total }: { endsAt: number
             <div className={cx("font-display text-[100px] leading-none font-extrabold tabular-nums", hot ? "text-sunset-orange" : "text-ink")}>
               {formatClock(left)}
             </div>
-            {paused && <div className="font-ticket text-ink-soft mt-2 text-[24px] font-bold tracking-[0.2em]">PAUSED</div>}
+            {paused && <div className="font-display text-ink-soft mt-2 text-[30px] font-extrabold">Paused</div>}
           </div>
         )}
       </div>
@@ -397,8 +397,8 @@ export function WritingScreen({ state, serverNow, joinUrl }: Props) {
         <div className="relative min-w-0 flex-1">
           <TicketRail className="absolute inset-x-[-14px] top-0" />
           {round?.topic && (
-            <div className="pt-3" style={{ transform: "rotate(-0.6deg)", transformOrigin: "50% 0" }}>
-              <TopicCardView topic={round.topic} size="tv" dense number={`R${state.game.roundIndex + 1}`} />
+            <div className="pt-3">
+              <OfferBrief topic={round.topic} tv />
             </div>
           )}
         </div>
@@ -688,7 +688,7 @@ export function SpotlightScreen({ state }: Props) {
           <motion.div className="flex items-center gap-6" initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
             <Avatar player={player} size={120} />
             <div className="min-w-0 flex-1">
-              <div className="font-ticket text-ink-soft text-[22px] font-bold tracking-[0.18em] uppercase">🛎️ Order up!</div>
+              <div className="font-display text-ink-soft text-[30px] font-bold">🛎️ Order up!</div>
               <div className="font-sign text-ink truncate text-[84px] leading-[0.95]">{player.name}</div>
             </div>
           </motion.div>
@@ -726,12 +726,12 @@ export function SpotlightScreen({ state }: Props) {
           {grade && (
             <div className="mt-6 grid shrink-0 grid-cols-2 gap-6">
               <div className="border-line bg-leaf/90 shadow-card rounded-[22px] border-4 px-6 py-4">
-                <div className="font-ticket text-ink/70 text-[18px] font-bold tracking-[0.14em] uppercase">💪 What&apos;s working</div>
-                <div className="mt-1 line-clamp-3 text-[24px] leading-snug font-semibold">{grade.strength}</div>
+                <div className="font-display text-ink/75 text-[26px] font-bold">💪 What&apos;s working</div>
+                <div className="mt-1 line-clamp-3 text-[29px] leading-snug font-semibold">{grade.strength}</div>
               </div>
               <div className="border-line bg-goldenrod shadow-card rounded-[22px] border-4 px-6 py-4">
-                <div className="font-ticket text-ink/70 text-[18px] font-bold tracking-[0.14em] uppercase">🎯 Next move</div>
-                <div className="mt-1 line-clamp-3 text-[24px] leading-snug font-semibold">{grade.nextMove}</div>
+                <div className="font-display text-ink/75 text-[26px] font-bold">🎯 Next move</div>
+                <div className="mt-1 line-clamp-3 text-[29px] leading-snug font-semibold">{grade.nextMove}</div>
               </div>
             </div>
           )}
@@ -869,7 +869,7 @@ export function FinalScreen({ state }: Props) {
               transition={{ delay: 2.6, type: "spring", stiffness: 120, damping: 12 }}
               className="border-line bg-azalea shadow-tv rounded-[26px] border-4 px-7 py-5"
             >
-              <div className="font-ticket text-ink/70 text-[20px] font-bold tracking-[0.16em] uppercase">🚀 Biggest glow-up</div>
+              <div className="font-display text-ink/75 text-[28px] font-bold">🚀 Biggest glow-up</div>
               <div className="mt-2 flex items-center gap-5">
                 <Avatar player={glow.player} size={88} />
                 <div className="min-w-0">
@@ -887,7 +887,7 @@ export function FinalScreen({ state }: Props) {
             transition={{ delay: 3.1 }}
             className="border-line bg-surface shadow-tv flex min-h-0 flex-1 flex-col rounded-[26px] border-4 px-7 pt-4 pb-5"
           >
-            <div className="font-ticket text-ink-soft text-[20px] font-bold tracking-[0.16em] uppercase">The room levelled up</div>
+            <div className="font-display text-ink-soft text-[28px] font-bold">The room levelled up</div>
             <div className="mt-2 flex flex-1 items-end gap-6">
               {avgs.map((a, r) => (
                 <div key={r} className="flex h-full flex-1 flex-col items-center justify-end">

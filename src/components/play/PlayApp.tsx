@@ -18,13 +18,14 @@ import {
   Input,
   Logo,
   Mascot,
+  OfferBrief,
   OfferFacts,
   scoreInk,
   ShowProvider,
   SpeechBubble,
   Stamp,
   Textarea,
-  TopicCardView,
+  TopicFacts,
   useTier,
 } from "../ui";
 
@@ -133,14 +134,14 @@ function Shell({
         {me && (
           <div className="border-line bg-goldenrod flex max-w-[40%] items-center gap-1.5 rounded-full border-2 py-0.5 pr-3 pl-0.5">
             <Avatar player={me} size={30} />
-            <span className="font-display truncate text-[14px] font-extrabold">{me.name}</span>
+            <span className="font-display truncate text-[16px] font-extrabold">{me.name}</span>
           </div>
         )}
         {me && onLeave && (
           <button
             type="button"
             onClick={onLeave}
-            className="border-line bg-surface text-ink shadow-control font-display shrink-0 rounded-full border-2 px-3 py-1 text-[13px] font-extrabold active:translate-y-px"
+            className="border-line bg-surface text-ink shadow-control font-display shrink-0 rounded-full border-2 px-3.5 py-1 text-[15px] font-extrabold active:translate-y-px"
           >
             Leave
           </button>
@@ -172,8 +173,8 @@ function PhoneAnnouncement({ state, serverNow }: { state: PublicState; serverNow
         >
           <Art src={MASCOT.point} className="h-12 w-12 shrink-0 -scale-x-100 object-contain" />
           <div className="min-w-0">
-            <div className="font-ticket text-ink/60 text-[10px] font-bold tracking-[0.16em] uppercase">From the head chef</div>
-            <div className="font-display text-[16px] leading-snug font-extrabold">{live.text}</div>
+            <div className="font-display text-ink-soft text-[14px] font-bold">From the head chef</div>
+            <div className="font-display text-[18px] leading-snug font-extrabold">{live.text}</div>
           </div>
         </motion.div>
       )}
@@ -259,8 +260,8 @@ function JoinScreen({ onJoined, notice }: { onJoined: (id: string) => void; noti
       {/* The chef card previews exactly what the TV will show. */}
       <div className="border-line bg-surface shadow-card relative overflow-hidden rounded-[24px] border-2">
         <div className="bg-sidecar border-line flex items-center justify-between border-b-2 px-4 py-2">
-          <span className="font-ticket text-ink/70 text-[11px] font-bold tracking-[0.16em] uppercase">Kitchen pass</span>
-          <span className="font-ticket text-ink/70 text-[11px] font-bold tracking-[0.16em] uppercase">New chef</span>
+          <span className="font-display text-[15px] font-bold">Kitchen pass</span>
+          <span className="font-display text-[15px] font-bold">New chef</span>
         </div>
         <div className="flex items-center gap-4 px-4 py-4">
           <motion.div key={avatar} initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 380, damping: 14 }}>
@@ -269,13 +270,13 @@ function JoinScreen({ onJoined, notice }: { onJoined: (id: string) => void; noti
             </div>
           </motion.div>
           <div className="min-w-0 flex-1">
-            <div className="font-display text-ink-soft text-[13px] font-bold">Your chef name</div>
+            <div className="font-display text-ink-soft text-[16px] font-bold">Your chef name</div>
             <div className="mt-1 flex gap-2">
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={18}
-                placeholder="e.g. Chef Priya"
+                placeholder="e.g. Priya"
                 className="min-w-0 text-[18px] font-bold"
                 aria-label="Your chef name"
               />
@@ -295,7 +296,7 @@ function JoinScreen({ onJoined, notice }: { onJoined: (id: string) => void; noti
       <div>
         <div className="mb-3 flex items-baseline justify-between px-1">
           <div className="font-sign text-ink text-[28px] leading-none">Pick your chef</div>
-          <div className="text-ink-soft text-[13px] font-bold">{AVATARS.length} chefs</div>
+          <div className="text-ink-soft text-[15px] font-bold">{AVATARS.length} chefs</div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {AVATARS.map((a) => {
@@ -391,7 +392,7 @@ function LobbyWait({ state }: { state: PublicState }) {
         <Avatar player={me} size={150} />
       </motion.div>
       <div>
-        <div className="font-ticket text-ink-soft text-[12px] font-bold tracking-[0.18em] uppercase">You&apos;re on the line</div>
+        <div className="font-display text-ink-soft text-[17px] font-bold">You&apos;re on the line</div>
         <h1 className="font-sign text-ink mt-1 text-[40px] leading-[0.95]">Welcome, {me.name}!</h1>
       </div>
       <div className="border-line bg-surface shadow-card flex items-center gap-3 rounded-full border-2 py-1.5 pr-4 pl-1.5">
@@ -407,10 +408,10 @@ function LobbyWait({ state }: { state: PublicState }) {
       <div className="mt-2 flex w-full items-end gap-2">
         <Mascot pose="wave" className="h-32 shrink-0" />
         <SpeechBubble tail="left" className="mb-8 flex-1" bodyClassName="px-4 py-3 text-left">
-          <p className="text-ink-muted leading-snug font-semibold">Eyes on the TV! Round 1 is a blank page — just write the offer you&apos;d actually say.</p>
+          <p className="text-ink-muted text-[17px] leading-snug font-semibold">Eyes on the TV! Round 1 is a blank page — just write the offer you&apos;d actually say.</p>
         </SpeechBubble>
       </div>
-      {state.show.reactions && <p className="text-ink-soft text-[13px] font-bold">Tap the emojis below — they fly up on the TV 👇</p>}
+      {state.show.reactions && <p className="text-ink-soft text-[15px] font-bold">Tap the emojis below — they fly up on the TV 👇</p>}
     </div>
   );
 }
@@ -418,8 +419,8 @@ function LobbyWait({ state }: { state: PublicState }) {
 function NextMoveCallout({ grade }: { grade: Grade }) {
   return (
     <div className="border-line bg-goldenrod shadow-card rounded-[18px] border-2 px-4 py-3">
-      <div className="font-ticket text-ink/70 text-[10.5px] font-bold tracking-[0.16em] uppercase">🎯 Your next move from last round</div>
-      <p className="mt-1 leading-snug font-bold">{grade.nextMove}</p>
+      <div className="font-display text-ink-soft text-[15px] font-bold">🎯 Your next move from last round</div>
+      <p className="mt-1 text-[17px] leading-snug font-bold">{grade.nextMove}</p>
     </div>
   );
 }
@@ -431,16 +432,32 @@ function IntroWait({ round, index, prevGrade }: { round: RoundView; index: numbe
         <Art src={ROUND_ART[round.scaffold]} className="absolute -top-2 -right-1 h-20 w-20 rotate-6 object-contain" />
         <div className="font-sign text-sticker text-[54px] leading-none">Round {index + 1}</div>
         <h1 className="font-sign text-ink mt-1 text-[36px] leading-none">{round.name}</h1>
-        <p className="text-ink-muted mt-2 font-semibold">{round.subtitle}</p>
+        <p className="text-ink-muted mt-2 text-[17px] font-semibold">{round.subtitle}</p>
       </div>
+      {round.topic && <OfferBrief topic={round.topic} />}
       {prevGrade && <NextMoveCallout grade={prevGrade} />}
-      {round.topic && <TopicCardView topic={round.topic} size="sm" number={`R${index + 1}`} />}
       <div className="font-display text-ink-muted animate-pulse text-center text-xl font-bold">The kitchen opens in a sec…</div>
     </div>
   );
 }
 
 /* ---------- Writing ---------- */
+
+function ToggleChip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={on}
+      className={cx(
+        "border-line font-display shadow-control rounded-full border-2 px-3.5 py-1.5 text-[15px] font-bold active:translate-y-px",
+        on ? "bg-goldenrod" : "bg-surface-plain",
+      )}
+    >
+      {children} <span aria-hidden>{on ? "▲" : "▼"}</span>
+    </button>
+  );
+}
 
 type Draft = { text: string; fields: GuidedFields };
 
@@ -477,7 +494,7 @@ function WriteScreen({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCase, setShowCase] = useState(index > 0 && !state.me?.player.seat);
+  const [more, setMore] = useState<"details" | "tips" | null>(null);
   const [checked, setChecked] = useState<Set<CriterionId>>(new Set());
 
   useEffect(() => writeStorage(draftKey, JSON.stringify(draft)), [draft, draftKey]);
@@ -595,14 +612,13 @@ function WriteScreen({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="border-line bg-surface shadow-card sticky top-[64px] z-20 flex items-center justify-between gap-3 rounded-[16px] border-2 py-1.5 pr-1.5 pl-3">
-        <div className="min-w-0">
-          <div className="font-ticket text-ink-soft text-[10px] font-bold tracking-[0.16em] uppercase">Round {index + 1} · kitchen open</div>
-          <div className="font-display truncate text-[15px] font-extrabold">{round.name}</div>
+      <div className="border-line bg-surface shadow-card sticky top-[64px] z-20 flex items-center justify-between gap-3 rounded-[16px] border-2 py-1.5 pr-1.5 pl-4">
+        <div className="font-display min-w-0 truncate text-[18px] font-extrabold">
+          Round {index + 1} <span className="text-ink-soft">·</span> {round.name}
         </div>
         <div
           className={cx(
-            "border-line font-display rounded-[12px] border-2 px-3 py-0.5 text-2xl font-extrabold tabular-nums",
+            "border-line font-display rounded-[12px] border-2 px-3 py-0.5 text-[26px] font-extrabold tabular-nums",
             hot ? "bg-sunset-orange animate-pulse text-white" : paused ? "bg-steel" : "bg-goldenrod",
           )}
         >
@@ -610,49 +626,53 @@ function WriteScreen({
         </div>
       </div>
 
-      {typing && <div className="border-line bg-azalea rounded-[14px] border-2 px-3 py-2 text-center text-[13px] font-bold">🎬 Demo phone — typing its offer live</div>}
-
-      {prevGrade && <NextMoveCallout grade={prevGrade} />}
+      {typing && <div className="border-line bg-azalea rounded-[14px] border-2 px-3 py-2 text-center text-[15px] font-bold">🎬 Demo phone — typing its offer live</div>}
 
       {round.topic && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setShowCase((s) => !s)}
-            className="border-line bg-surface font-display shadow-control flex w-full items-center justify-between gap-3 rounded-[14px] border-2 px-3 py-2 text-left font-bold"
-          >
-            <span className="flex min-w-0 items-center gap-2 truncate">
-              <span className="text-xl">{round.topic.emoji}</span> {round.topic.title}
-            </span>
-            <span className="text-link text-caption shrink-0">{showCase ? "Hide the order ▲" : "See the order ▼"}</span>
-          </button>
-          <AnimatePresence initial={false}>
-            {showCase && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="pt-4 pb-1">
-                  <TopicCardView topic={round.topic} size="sm" number={`R${index + 1}`} />
-                </div>
+        <OfferBrief topic={round.topic}>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <ToggleChip on={more === "details"} onClick={() => setMore((m) => (m === "details" ? null : "details"))}>
+              📋 Details
+            </ToggleChip>
+            {round.tips.length > 0 && (
+              <ToggleChip on={more === "tips"} onClick={() => setMore((m) => (m === "tips" ? null : "tips"))}>
+                💡 Tips
+              </ToggleChip>
+            )}
+          </div>
+          <AnimatePresence initial={false} mode="wait">
+            {more && (
+              <motion.div
+                key={more}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                {more === "details" ? (
+                  <TopicFacts topic={round.topic} className="border-line/20 mt-4 border-t-2 border-dashed pt-1" />
+                ) : (
+                  <ul className="border-line/20 mt-4 flex flex-col gap-2.5 border-t-2 border-dashed pt-4">
+                    {round.tips.map((tip, i) => (
+                      <li key={i} className="text-ink flex gap-2.5 text-[16px] leading-snug">
+                        <span aria-hidden>💡</span>
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </OfferBrief>
       )}
 
-      {round.tips.length > 0 && (
-        <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1.5">
-          {round.tips.map((tip, i) => (
-            <div key={i} className="border-bubble-ink bg-bubble-body shadow-card w-[80%] shrink-0 snap-start rounded-[16px] border-2 px-4 py-3 leading-snug">
-              <span className="font-display text-bubble-ink font-extrabold">💡 Tip {i + 1}: </span>
-              {tip}
-            </div>
-          ))}
-        </div>
-      )}
+      {prevGrade && <NextMoveCallout grade={prevGrade} />}
 
       {round.scaffold === "checklist" && (
-        <div className="border-line bg-surface shadow-card overflow-hidden rounded-[18px] border-2">
-          <div className="bg-sidecar border-line border-b-2 px-4 py-2 font-extrabold">🧂 The six ingredients — did you add…</div>
-          <div className="grid gap-2 p-3">
+        <div className="border-line bg-surface shadow-card rounded-[18px] border-2 p-4">
+          <div className="font-display text-[18px] font-extrabold">Did you include all six?</div>
+          <div className="mt-3 grid gap-2">
             {(Object.keys(CRITERIA) as CriterionId[]).map((id) => {
               const on = checked.has(id);
               return (
@@ -667,17 +687,15 @@ function WriteScreen({
                       return n;
                     })
                   }
+                  aria-pressed={on}
                   className={cx(
-                    "flex items-center gap-3 rounded-[12px] border-2 px-3 py-2 text-left transition-colors",
-                    on ? "border-line bg-leaf/25" : "border-line/15 bg-surface-plain",
+                    "flex items-center gap-3 rounded-[12px] border-2 px-3 py-2.5 text-left transition-colors",
+                    on ? "border-line bg-leaf/25" : "border-line/20 bg-surface-plain",
                   )}
                 >
                   <CheckMark on={on} />
                   <span className="text-xl">{CRITERIA[id].emoji}</span>
-                  <span>
-                    <span className="font-display block leading-tight font-bold">{CRITERIA[id].label}</span>
-                    <span className="text-caption text-ink-soft">{CRITERIA[id].hint}</span>
-                  </span>
+                  <span className="font-display text-[17px] leading-tight font-bold">{CRITERIA[id].label}</span>
                 </button>
               );
             })}
@@ -689,15 +707,14 @@ function WriteScreen({
         <div className="flex flex-col gap-4">
           {GUIDED_ORDER.map((id, i) => (
             <div key={id} className="border-line bg-surface shadow-card rounded-[18px] border-2 p-4">
-              <div className="flex items-center gap-2">
-                <span className="border-line bg-goldenrod font-display grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 text-[13px] font-extrabold">
+              <label htmlFor={`field-${id}`} className="mb-2.5 flex items-center gap-2">
+                <span className="border-line bg-goldenrod font-display grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 text-[15px] font-extrabold">
                   {i + 1}
                 </span>
-                <span className="font-display text-subheading font-extrabold">
+                <span className="font-display text-[19px] leading-tight font-extrabold">
                   {CRITERIA[id].emoji} {CRITERIA[id].label}
                 </span>
-              </div>
-              <div className="text-caption text-ink-soft mt-1 mb-2">{CRITERIA[id].hint}</div>
+              </label>
               <Textarea
                 value={draft.fields[id] ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, fields: { ...d.fields, [id]: e.target.value } }))}
@@ -706,13 +723,16 @@ function WriteScreen({
                 placeholder={CRITERIA[id].placeholder}
                 readOnly={typing}
                 id={`field-${id}`}
+                className="text-[17px]"
               />
             </div>
           ))}
         </div>
       ) : (
-        <div className="border-line bg-ticket shadow-card rounded-[18px] border-2 p-3">
-          <div className="font-ticket text-ink-soft mb-2 px-1 text-[11px] font-bold tracking-[0.14em] uppercase">✍️ Your offer</div>
+        <div className="border-line bg-surface shadow-card rounded-[18px] border-2 p-3">
+          <label htmlFor="field-text" className="font-display mb-2 block px-1 text-[18px] font-extrabold">
+            ✍️ Your offer
+          </label>
           <Textarea
             value={draft.text}
             onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
@@ -721,6 +741,7 @@ function WriteScreen({
             placeholder="Write it like you'd say it to a real customer…"
             readOnly={typing}
             id="field-text"
+            className="text-[17px]"
           />
         </div>
       )}
@@ -742,7 +763,7 @@ function WriteScreen({
           <Art src="/art/cloche.webp" className="h-16 w-16 shrink-0 object-contain" />
           <div>
             <div className="font-sign text-[26px] leading-none">Plated!</div>
-            <p className="text-ink mt-1 text-[14px] leading-snug font-semibold">The judge tastes it when the kitchen locks. You can still tweak it until then.</p>
+            <p className="text-ink mt-1 text-[16px] leading-snug font-semibold">The judge tastes it when the kitchen locks. You can still tweak it until then.</p>
           </div>
         </motion.div>
       ) : (
@@ -793,7 +814,7 @@ function ResultCard({ grade, rank, of }: { grade: Grade; rank: number | null; of
         transition={{ type: "spring", stiffness: 160, damping: 14 }}
         className="border-line bg-surface shadow-card relative overflow-hidden rounded-[24px] border-2 px-5 pt-5 pb-4 text-center"
       >
-        <div className="font-ticket text-ink-soft text-[11px] font-bold tracking-[0.16em] uppercase">The judge says</div>
+        <div className="font-display text-ink-soft text-[17px] font-bold">The judge says</div>
         <div className="font-sign text-[104px] leading-none tabular-nums" style={{ color: scoreInk(grade.overall) }}>
           <CountUp to={grade.overall} />
         </div>
@@ -807,22 +828,22 @@ function ResultCard({ grade, rank, of }: { grade: Grade; rank: number | null; of
             </Chip>
           </div>
         )}
-        <p className="text-ink-muted mt-3 leading-snug font-semibold">{grade.verdict}</p>
+        <p className="text-ink-muted mt-3 text-[17px] leading-snug font-semibold">{grade.verdict}</p>
         {grade.overall >= 90 && <Mascot pose="kiss" className="absolute top-1 -right-3 h-20" />}
       </motion.div>
 
       <div className="border-line bg-goldenrod shadow-card rounded-[18px] border-2 px-4 py-3">
-        <div className="font-ticket text-ink/70 text-[10.5px] font-bold tracking-[0.16em] uppercase">🎯 Your next move</div>
-        <p className="mt-1 leading-snug font-bold">{grade.nextMove}</p>
+        <div className="font-display text-ink-soft text-[15px] font-bold">🎯 Your next move</div>
+        <p className="mt-1 text-[17px] leading-snug font-bold">{grade.nextMove}</p>
       </div>
       <div className="border-line bg-leaf/80 shadow-card rounded-[18px] border-2 px-4 py-3">
-        <div className="font-ticket text-ink/70 text-[10.5px] font-bold tracking-[0.16em] uppercase">💪 What&apos;s working</div>
-        <p className="mt-1 leading-snug font-bold">{grade.strength}</p>
+        <div className="font-display text-ink/75 text-[15px] font-bold">💪 What&apos;s working</div>
+        <p className="mt-1 text-[17px] leading-snug font-bold">{grade.strength}</p>
       </div>
 
       <OfferFacts grade={grade} feedback delay={0.4} className="shadow-card rounded-[6px]" />
 
-      <details className="border-line/30 bg-surface/80 rounded-[14px] border-2 px-4 py-2 text-[13px]">
+      <details className="border-line/30 bg-surface/80 rounded-[14px] border-2 px-4 py-2.5 text-[15px]">
         <summary className="font-display cursor-pointer font-bold">What the judge quoted from your offer</summary>
         <div className="mt-2 flex flex-col gap-1.5">
           {grade.criteria.map((c) => (
@@ -835,7 +856,7 @@ function ResultCard({ grade, rank, of }: { grade: Grade; rank: number | null; of
           ))}
         </div>
       </details>
-      {grade.simulated && <p className="text-ink-soft text-center text-xs">Rehearsal mode — simulated grade</p>}
+      {grade.simulated && <p className="text-ink-soft text-center text-[14px]">Rehearsal mode — simulated grade</p>}
     </div>
   );
 }
@@ -859,13 +880,13 @@ function Journey({ state }: { state: PublicState }) {
           <Mascot pose="cheer" className="h-40" />
         )}
         <div className="font-sign text-sticker mt-2 text-[40px] leading-none">{won ? "Golden Spatula!" : "That's a wrap!"}</div>
-        <p className="text-ink-muted mt-1 font-semibold">{won ? "You cooked the best offer in the room." : "From raw to Grand Slam — here's your journey."}</p>
+        <p className="text-ink-muted mt-1 text-[17px] font-semibold">{won ? "You cooked the best offer in the room." : "From raw to Grand Slam — here's your journey."}</p>
       </div>
       <div className="border-line bg-surface shadow-card overflow-hidden rounded-[20px] border-2">
         {me.rounds.map((r, i) => (
           <div key={i} className="border-line/15 flex items-center gap-3 border-t px-4 py-3 first:border-t-0">
             <Art src={ROUND_ART[state.rounds[i]?.scaffold ?? "blank"]} className="h-10 w-10 shrink-0 object-contain" />
-            <div className="font-display min-w-0 flex-1 truncate font-extrabold">{state.rounds[i]?.name}</div>
+            <div className="font-display min-w-0 flex-1 truncate text-[18px] font-extrabold">{state.rounds[i]?.name}</div>
             {r.grade ? (
               <>
                 <div className="font-sign w-14 text-right text-3xl tabular-nums" style={{ color: scoreInk(r.grade.overall) }}>
@@ -887,8 +908,8 @@ function Journey({ state }: { state: PublicState }) {
       )}
       {last && (
         <div className="border-line bg-goldenrod shadow-card rounded-[18px] border-2 px-4 py-3">
-          <div className="font-ticket text-ink/70 text-[10.5px] font-bold tracking-[0.16em] uppercase">🎯 Take this home</div>
-          <p className="mt-1 leading-snug font-bold">{last.nextMove}</p>
+          <div className="font-display text-ink-soft text-[15px] font-bold">🎯 Take this home</div>
+          <p className="mt-1 text-[17px] leading-snug font-bold">{last.nextMove}</p>
         </div>
       )}
     </div>

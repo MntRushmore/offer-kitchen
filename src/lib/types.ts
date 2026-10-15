@@ -27,6 +27,8 @@ export interface TopicCard {
   emoji: string;
   /** A built-in illustration key (see TOPIC_ART), an image URL, or null for the emoji. */
   image?: string | null;
+  /** Two or three short bullets: the at-a-glance version players write from. Empty = derived from the fields below. */
+  brief?: string[];
   buyer: string;
   pain: string;
   alternatives: string;

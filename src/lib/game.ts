@@ -403,6 +403,7 @@ const TopicSchema = z.object({
   title: z.string().min(1).max(80),
   emoji: z.string().max(16),
   image: z.string().max(2000).nullable().optional(),
+  brief: z.array(z.string().max(160)).max(4).optional(),
   buyer: z.string().max(1500),
   pain: z.string().max(1500),
   alternatives: z.string().max(1500),
@@ -636,6 +637,7 @@ export async function adminAction(a: AdminAction): Promise<void> {
       }
       const cfg = parsed.data as GameConfig;
       cfg.rounds.forEach((r) => (r.tips = r.tips.map((t) => t.trim()).filter(Boolean)));
+      cfg.topics.forEach((t) => (t.brief = (t.brief ?? []).map((b) => b.trim()).filter(Boolean)));
       const ids = new Set(cfg.topics.map((t) => t.id));
       if (cfg.rounds.some((r) => !ids.has(r.topicId))) throw new GameError("Every round needs a topic card that exists.");
       await store.set(K.config, cfg);
